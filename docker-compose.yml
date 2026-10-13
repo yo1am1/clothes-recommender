@@ -1,53 +1,29 @@
-version: "3.8"
-
 services:
-  streamlit:
-    build: .
-    container_name: clothes_recommender_streamlit
-    command: streamlit run chatbot_streamlit.py --server.port 8501 --server.enableCORS false --server.enableXsrfProtection false
-    ports:
-      - "8501:8501"
-    volumes:
-      - .:/app
-    env_file:
-      - .env
-    environment:
-      # - AWS_ACCESS_KEY_ID=test
-      # - AWS_SECRET_ACCESS_KEY=test
-      # - AWS_REGION=eu-central-1
-      - LOCALSTACK_HOST=localstack
-    depends_on:
-      - localstack
+  qdrant:
+    image: qdrant/qdrant:v1.19.2   # keep in step with the qdrant-client minor version
+    ports: ["6333:6333"]
+    volumes: [qdrant-data:/qdrant/storage]
 
-  fastapi:
+  api:
     build: .
-    container_name: clothes_recommender_fastapi
-    command: python chatbot_fastapi.py --host 0.0.0.0 --port 8502 --workers 1
-    ports:
-      - "8502:8502"
-    volumes:
-      - .:/app
+    image: clothes-recommender:local
+    env_file: [{ path: .env, required: false }]
     environment:
-      # - AWS_ACCESS_KEY_ID=test
-      # - AWS_SECRET_ACCESS_KEY=test
-      # - AWS_REGION=eu-central-1
-      - LOCALSTACK_HOST=localstack
-    depends_on:
-      - localstack
+      QDRANT_URL: http://qdrant:6333
+    ports: ["8000:8000"]
+    volumes:
+      - ./data:/app/data:ro
+      - hf-cache:/home/app/.cache/huggingface
+    depends_on: [qdrant]
 
-  localstack:
-    container_name: "${LOCALSTACK_DOCKER_NAME:-localstack-main}"
-    image: localstack/localstack
-    ports:
-      - "4566:4566"
+  ui:
+    image: clothes-recommender:local   # same image as the API, built once
+    command: ["streamlit", "run", "src/clothes_recommender/ui.py", "--server.port", "8501", "--server.address", "0.0.0.0"]
     environment:
-      # - AWS_ACCESS_KEY_ID=test
-      # - AWS_SECRET_ACCESS_KEY=test
-      # - AWS_REGION=eu-central-1
-      - DEBUG=1
-      - DATA_DIR=/tmp/localstack/data
-      - SERVICES=s3
-    volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock"
-      # - "/tmp/localstack:/tmp/localstack"
-      - ./files:/home/localstack
+      API_URL: http://api:8000
+    ports: ["8501:8501"]
+    depends_on: [api]
+
+volumes:
+  qdrant-data:
+  hf-cache:

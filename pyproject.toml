@@ -1,29 +1,67 @@
 [project]
-name = "app-clothes-recommender"
-version = "0.1.0"
-description = "Add your description here"
+name = "clothes-recommender"
+version = "0.2.0"
+description = "Multimodal fashion recommender: CLIP vector search, personalised recommendations and an LLM shopping assistant."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "aiohttp==3.11.14",
-    "boto3==1.37.28",
-    "botocore==1.37.28",
-    "fastapi==0.115.12",
-    "icecream==2.1.4",
-    "langchain==0.3.24",
-    "langchain-core==0.3.55",
-    "langchain-openai==0.3.14",
-    "lark==1.2.2",
-    "numpy==2.2.5",
-    "open-clip-torch==2.31.0",
-    "pandas==2.2.3",
-    "pillow==11.2.1",
-    "pinecone==6.0.2",
-    "python-dotenv==1.1.0",
-    "python-multipart==0.0.20",
-    "streamlit==1.44.1",
-    "torch==2.6.0",
-    "tqdm==4.67.1",
-    "transformers==4.51.3",
-    "uvicorn==0.34.2",
+    "fastapi>=0.143.0",
+    "httpx>=0.28.1",
+    "langchain>=1.4.5",
+    "langchain-core>=1.6.10",
+    "langchain-openai>=1.7.1",
+    "numpy>=2.5.4",
+    "pandas>=3.0.6",
+    "pillow>=12.3.0",
+    "pyarrow>=26.0.0",
+    "pydantic-settings>=2.15.0",
+    "python-multipart>=0.0.32",
+    "qdrant-client>=1.19.1",
+    "scipy>=1.18.1",
+    "torch>=2.14.1",
+    "tqdm>=4.70.1",
+    "transformers>=5.19.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[project.optional-dependencies]
+ui = [
+    "streamlit>=1.59.1",
+]
+anthropic = [
+    "langchain-anthropic>=1.7.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/clothes_recommender"]
+
+# CPU-only torch wheels on Linux keep the install (and Docker image) small.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -m 'not integration'"
+markers = ["integration: needs downloaded models or network"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.17.0",
 ]
