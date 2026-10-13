@@ -1,0 +1,29 @@
+[project]
+name = "app-clothes-recommender"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aiohttp==3.11.14",
+    "boto3==1.37.28",
+    "botocore==1.37.28",
+    "fastapi==0.115.12",
+    "icecream==2.1.4",
+    "langchain==0.3.24",
+    "langchain-core==0.3.55",
+    "langchain-openai==0.3.14",
+    "lark==1.2.2",
+    "numpy==2.2.5",
+    "open-clip-torch==2.31.0",
+    "pandas==2.2.3",
+    "pillow==11.2.1",
+    "pinecone==6.0.2",
+    "python-dotenv==1.1.0",
+    "python-multipart==0.0.20",
+    "streamlit==1.44.1",
+    "torch==2.6.0",
+    "tqdm==4.67.1",
+    "transformers==4.51.3",
+    "uvicorn==0.34.2",
+]

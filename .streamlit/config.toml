@@ -1,0 +1,28 @@
+# Streamlit Performance Configuration
+# This configuration optimizes the app to prevent hitting resource limits
+
+[server]
+# Increase max upload size
+maxUploadSize = 200
+
+# Enable CORS for development
+enableCORS = false
+enableXsrfProtection = false
+
+# Connection settings
+runOnSave = false
+fileWatcherType = "none"
+
+[browser]
+# Reduce memory consumption by limiting gather usage stats
+gatherUsageStats = false
+
+[runner]
+# Optimize runner settings
+magicEnabled = true
+fastReruns = true
+
+[client]
+# Show less verbose errors to users
+showErrorDetails = false
+toolbarMode = "minimal"

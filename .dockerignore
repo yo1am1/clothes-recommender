@@ -1,0 +1,9 @@
+__pycache__
+.devcontainer
+.gitignore
+.vscode
+*.7z
+*.md
+foo*
+images
+chroma
