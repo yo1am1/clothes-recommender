@@ -17,8 +17,9 @@ def _popularity_score(rating: float, review_count: int) -> float:
     """Bayesian-average rating x log(1 + review count).
 
     A raw mean lets one 5-star review outrank thousands of 4.6-star ones. Shrinking each
-    rating towards the prior makes thinly reviewed products earn their rank, and the log
-    term rewards proven demand with diminishing returns so mega-sellers don't swamp the list.
+    rating towards the prior stops products with few reviews from ranking on luck, and the
+    log term rewards review volume with diminishing returns, so a few best-sellers don't
+    fill the whole list.
     """
     bayesian_rating = (PRIOR_RATING * PRIOR_REVIEW_COUNT + rating * review_count) / (
         PRIOR_REVIEW_COUNT + review_count

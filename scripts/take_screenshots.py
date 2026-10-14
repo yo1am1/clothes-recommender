@@ -19,7 +19,7 @@ RESULT_TIMEOUT_MS = 120_000
 RESULTS_PER_GRID = 10
 
 # Streamlit re-renders asynchronously, so "no spinner" can be true before a rerun even starts.
-# Waiting for the expected number of visible, decoded photos is the only reliable signal.
+# The script waits for the expected number of visible, decoded photos instead.
 _VISIBLE_PHOTOS_LOADED = """minimum => {
     const photos = [...document.querySelectorAll('[data-testid="stImage"] img')]
         .filter(img => img.offsetParent !== null);
@@ -44,7 +44,7 @@ def wait_for_photos(page: Page, minimum: int) -> None:
 
 
 def capture(page: Page, out: Path, name: str) -> None:
-    # JPEG: photo grids compress ~5x better than PNG, which keeps re-captures cheap in git.
+    # JPEG: photo grids come out about 3x smaller than PNG, which keeps re-captures cheap in git.
     path = out / f"{name}.jpg"
     page.screenshot(path=path, quality=85)
     print(f"saved {path}")
