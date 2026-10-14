@@ -34,7 +34,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--query-image", type=Path, required=True, help="Photo for image search.")
     parser.add_argument("--text-query", default="red floral summer dress")
     parser.add_argument(
-        "--chat-message", default="Comfortable running shoes under $40 with good ratings, please"
+        "--chat-message", default="Black wide-leg trousers for women under €40, please"
     )
     return parser.parse_args()
 
