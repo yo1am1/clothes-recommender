@@ -52,6 +52,7 @@ torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = "-ra -m 'not integration'"
 markers = ["integration: needs downloaded models or network"]
 
