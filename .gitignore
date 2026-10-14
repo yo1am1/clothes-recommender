@@ -17,3 +17,6 @@ build/
 .idea/
 .vscode/
 .DS_Store
+
+# Dataset (H&M Kaggle data is licensed for non-commercial use and not redistributed)
+data/
