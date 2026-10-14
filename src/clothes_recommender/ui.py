@@ -1,4 +1,4 @@
-"""Streamlit demo UI — a thin client over the HTTP API.
+"""Streamlit demo UI: a thin client over the HTTP API.
 
 Run with: uv run streamlit run src/clothes_recommender/ui.py
 """
@@ -134,7 +134,7 @@ def chat_tab() -> None:
 
 def main() -> None:
     st.set_page_config(page_title="Clothy · Fashion Recommender", page_icon="👗", layout="wide")
-    st.title("👗 Clothy — multimodal fashion recommender")
+    st.title("👗 Clothy: multimodal fashion recommender")
     tabs = st.tabs(["Recommendations", "Text → image search", "Image search", "Shopping assistant"])
     for tab, render in zip(
         tabs, [recommendations_tab, text_search_tab, image_search_tab, chat_tab], strict=True
