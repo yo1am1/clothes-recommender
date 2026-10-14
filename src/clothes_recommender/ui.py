@@ -9,6 +9,8 @@ import streamlit as st
 from clothes_recommender.config import get_settings
 
 GRID_COLUMNS = 5
+# Catalog photos are mostly portrait; a fixed width keeps cards compact so captions stay visible.
+PHOTO_WIDTH = 160
 
 
 @st.cache_resource
@@ -38,7 +40,7 @@ def show_products(products: list[dict], scores: list[float] | None = None) -> No
     columns = st.columns(GRID_COLUMNS)
     for i, product in enumerate(products):
         with columns[i % GRID_COLUMNS]:
-            st.image(product["image_url"], width="stretch")
+            st.image(product["image_url"], width=PHOTO_WIDTH)
             st.markdown(f"[{product['name'][:60]}]({product['product_url']})")
             caption = f"${product['price']:.2f} · ★ {product['rating']:.1f} · {product['brand']}"
             if scores is not None:
@@ -100,7 +102,7 @@ def text_search_tab() -> None:
 def image_search_tab() -> None:
     upload = st.file_uploader("Upload a photo of a garment", type=["png", "jpg", "jpeg"])
     if upload:
-        st.image(upload, width=200)
+        st.image(upload, width=PHOTO_WIDTH)
         show_hits(
             call_api("POST", "/search/image", files={"file": (upload.name, upload.getvalue())})
         )
