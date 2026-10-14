@@ -13,6 +13,7 @@ ARTICLES = pd.DataFrame(
         "article_id": [108775015, 108775044, 110065001],
         "prod_name": ["Strap top", "Strap top", "OP T-shirt"],
         "product_type_name": ["Vest top", "Vest top", "T-shirt"],
+        "product_group_name": ["Garment Upper body"] * 3,
         "index_group_name": ["Ladieswear", "Ladieswear", "Menswear"],
         "colour_group_name": ["Black", "White", "Dark Blue"],
         "detail_desc": ["Jersey top.", None, "Cotton T-shirt."],

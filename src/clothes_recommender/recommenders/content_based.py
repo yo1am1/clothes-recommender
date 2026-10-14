@@ -17,14 +17,16 @@ logger = logging.getLogger(__name__)
 # Tastes drift: with a 30-day half-life last month's purchases dominate the taste vector,
 # while a purchase from a season ago still counts for about an eighth.
 RECENCY_HALF_LIFE_DAYS = 30
-TOP_PRODUCT_TYPE_COUNT = 3
+# Broad groups ("Garment Upper body", "Shoes") keep results relevant without narrowing them
+# to near-copies of past purchases, which H&M's ~130 fine product types would do.
+TOP_PRODUCT_GROUP_COUNT = 3
 
 
 class ContentBasedRecommender:
     """Searches the CLIP index with the user's "taste vector".
 
     The taste vector is the recency-weighted mean of the embeddings of the purchased
-    products; the search is limited to the product types the user buys most.
+    products; the search is limited to the product groups the user buys most.
     """
 
     def __init__(
@@ -50,15 +52,15 @@ class ContentBasedRecommender:
             return self._popular.top(top_k, exclude_ids=purchased_ids)
 
         product_filter = ProductFilter(
-            product_types=self._top_product_types(purchases), exclude_ids=tuple(purchased_ids)
+            product_groups=self._top_product_groups(purchases), exclude_ids=tuple(purchased_ids)
         )
         return self._store.search(_taste_vector(purchases, vectors), top_k, product_filter)
 
-    def _top_product_types(self, purchases: Sequence[Purchase]) -> tuple[str, ...]:
+    def _top_product_groups(self, purchases: Sequence[Purchase]) -> tuple[str, ...]:
         products = self._catalog.get_many(p.product_id for p in purchases)
-        counts = Counter(p.product_type for p in products)
-        ranked = sorted(counts, key=lambda product_type: (-counts[product_type], product_type))
-        return tuple(ranked[:TOP_PRODUCT_TYPE_COUNT])
+        counts = Counter(p.product_group for p in products)
+        ranked = sorted(counts, key=lambda group: (-counts[group], group))
+        return tuple(ranked[:TOP_PRODUCT_GROUP_COUNT])
 
 
 def _taste_vector(purchases: Sequence[Purchase], vectors: dict[int, np.ndarray]) -> np.ndarray:

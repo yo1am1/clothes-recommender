@@ -8,7 +8,7 @@ import pytest
 
 from clothes_recommender.catalog import CustomerData, ProductCatalog
 
-# (product_id, product_type)
+# (product_id, product_group)
 ProductSpec = tuple[int, str]
 # (user_id, product_id, purchase_date)
 PurchaseSpec = tuple[int, int, date]
@@ -21,13 +21,14 @@ def make_catalog() -> Callable[[Sequence[ProductSpec]], ProductCatalog]:
             {
                 "product_id": product_id,
                 "name": f"product {product_id}",
-                "product_type": product_type,
+                "product_type": product_group,
+                "product_group": product_group,
                 "section": "Ladieswear",
                 "colour": "Black",
                 "description": "",
                 "price": 10.0,
             }
-            for product_id, product_type in specs
+            for product_id, product_group in specs
         ]
         return ProductCatalog(pd.DataFrame(rows))
 

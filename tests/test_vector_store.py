@@ -60,6 +60,7 @@ def test_search_ranks_exact_match_first(vector_store: ProductVectorStore, fake_e
     [
         (ProductFilter(), {1, 2, 3, 4, 5, 6}),
         (ProductFilter(product_types=("Sneakers", "Trousers")), {1, 2, 5}),
+        (ProductFilter(product_groups=("Shoes",)), {5, 6}),
         (ProductFilter(sections=("  menswear ",)), {1, 4}),
         (ProductFilter(colours=("BLACK",)), {2, 5}),
         (ProductFilter(min_price=30.0, max_price=100.0), {3, 5}),

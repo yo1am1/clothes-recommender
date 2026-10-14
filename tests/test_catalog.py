@@ -12,6 +12,7 @@ def _product_row(product_id: int, product_type: str) -> dict[str, object]:
         "product_id": product_id,
         "name": f"product {product_id}",
         "product_type": product_type,
+        "product_group": "Garment Lower body",
         "section": "Ladieswear",
         "colour": "Black",
         "description": "",

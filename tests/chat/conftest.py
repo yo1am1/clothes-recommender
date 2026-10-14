@@ -60,11 +60,38 @@ class FakeSearch:
 @pytest.fixture
 def catalog() -> ProductCatalog:
     rows = [
-        (1, "Slim Jeans", "Trousers", "Menswear", "Blue", "5-pocket jeans in washed denim.", 29.99),
-        (2, "Run Shoe", "Sneakers", "Sport", "Black", "Lightweight running shoes.", 59.99),
-        (3, "Summer Dress", "Dress", "Ladieswear", "Red", "Short dress in airy cotton.", 24.99),
+        (
+            1,
+            "Slim Jeans",
+            "Trousers",
+            "Garment Lower body",
+            "Menswear",
+            "Blue",
+            "5-pocket jeans in washed denim.",
+            29.99,
+        ),
+        (2, "Run Shoe", "Sneakers", "Shoes", "Sport", "Black", "Lightweight running shoes.", 59.99),
+        (
+            3,
+            "Summer Dress",
+            "Dress",
+            "Garment Full body",
+            "Ladieswear",
+            "Red",
+            "Short dress in airy cotton.",
+            24.99,
+        ),
     ]
-    columns = ["product_id", "name", "product_type", "section", "colour", "description", "price"]
+    columns = [
+        "product_id",
+        "name",
+        "product_type",
+        "product_group",
+        "section",
+        "colour",
+        "description",
+        "price",
+    ]
     return ProductCatalog(pd.DataFrame(rows, columns=columns))
 
 

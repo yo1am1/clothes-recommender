@@ -14,6 +14,7 @@ class Product(BaseModel):
     product_id: int
     name: str
     product_type: str
+    product_group: str
     section: str
     colour: str
     description: str
@@ -40,6 +41,7 @@ class ProductFilter:
     """
 
     product_types: tuple[str, ...] = ()
+    product_groups: tuple[str, ...] = ()
     sections: tuple[str, ...] = ()
     colours: tuple[str, ...] = ()
     min_price: float | None = None

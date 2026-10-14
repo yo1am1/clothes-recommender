@@ -38,6 +38,15 @@ class FakeEncoder:
         return vectors
 
 
+PRODUCT_GROUPS = {
+    "Trousers": "Garment Lower body",
+    "Dress": "Garment Full body",
+    "Polo shirt": "Garment Upper body",
+    "Sneakers": "Shoes",
+    "Boots": "Shoes",
+}
+
+
 def _product(
     product_id: int, name: str, product_type: str, section: str, colour: str, price: float
 ) -> Product:
@@ -45,6 +54,7 @@ def _product(
         product_id=product_id,
         name=name,
         product_type=product_type,
+        product_group=PRODUCT_GROUPS[product_type],
         section=section,
         colour=colour,
         description=f"{name} in {colour.lower()}.",

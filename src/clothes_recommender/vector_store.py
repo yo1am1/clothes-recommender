@@ -10,7 +10,7 @@ from qdrant_client import QdrantClient, models
 from clothes_recommender.config import Settings
 from clothes_recommender.domain import Product, ProductFilter, ScoredProduct
 
-_KEYWORD_FIELDS = ("product_type", "section", "colour")
+_KEYWORD_FIELDS = ("product_type", "product_group", "section", "colour")
 _FLOAT_FIELDS = ("price",)
 
 
@@ -146,6 +146,7 @@ def _normalise(value: str) -> str:
 def _payload(product: Product) -> dict[str, str | float]:
     return {
         "product_type": _normalise(product.product_type),
+        "product_group": _normalise(product.product_group),
         "section": _normalise(product.section),
         "colour": _normalise(product.colour),
         "price": product.price,
@@ -159,6 +160,7 @@ def _to_qdrant_filter(product_filter: ProductFilter | None) -> models.Filter | N
     must: list[models.Condition] = []
     keyword_constraints = {
         "product_type": product_filter.product_types,
+        "product_group": product_filter.product_groups,
         "section": product_filter.sections,
         "colour": product_filter.colours,
     }

@@ -122,10 +122,22 @@ def prepare(archive_path: Path, data_dir: Path, weeks: int, customer_count: int,
                     "article_id": "product_id",
                     "prod_name": "name",
                     "product_type_name": "product_type",
+                    "product_group_name": "product_group",
                     "index_group_name": "section",
                     "colour_group_name": "colour",
                 }
-            )[["product_id", "name", "product_type", "section", "colour", "description", "price"]]
+            )[
+                [
+                    "product_id",
+                    "name",
+                    "product_type",
+                    "product_group",
+                    "section",
+                    "colour",
+                    "description",
+                    "price",
+                ]
+            ]
         )
 
         with archive.open("customers.csv") as raw:
