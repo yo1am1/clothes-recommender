@@ -18,6 +18,8 @@ dependencies = [
     "python-multipart>=0.0.32",
     "qdrant-client>=1.19.1",
     "scipy>=1.18.1",
+    # Streamlit 1.59 gzip middleware breaks on starlette 1.8 (in-memory images return 500).
+    "starlette<1.8",
     "torch>=2.14.1",
     "tqdm>=4.70.1",
     "transformers>=5.19.0",
