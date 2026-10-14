@@ -1,37 +1,48 @@
-# Clothy — multimodal fashion recommender
+# Clothy: multimodal fashion recommender
 
-A compact, end-to-end recommender for a fashion catalog that combines **vector search**,
-**classic recommender algorithms** and an **LLM shopping assistant**:
+Clothy is an end-to-end recommender for a fashion catalog. It combines CLIP vector search,
+two classic recommender algorithms and an LLM shopping assistant:
 
 | Feature | How it works |
 |---|---|
-| **Text → image search** | The query is embedded with CLIP's text encoder and matched against CLIP image embeddings of every product in Qdrant. |
-| **Image search** | An uploaded photo is embedded with CLIP's image encoder and matched the same way. |
-| **Content-based recommendations** | A user's *taste vector* — the recency-weighted mean of the embeddings of what they bought — is searched within their favourite categories, excluding past purchases. |
-| **Collaborative recommendations** | User-based collaborative filtering: cosine similarity on the sparse user × product purchase matrix; products are scored by the similarity-weighted votes of the nearest neighbours. |
-| **Shopping assistant (RAG)** | The LLM turns a message into a structured `SearchIntent` (visual query + category/brand/colour/price/rating filters), Qdrant retrieves matching products, and the answer is grounded only in those products. |
+| Text-to-image search | The query is embedded with CLIP's text encoder and compared with the CLIP image embeddings of every product in Qdrant. |
+| Image search | An uploaded photo is embedded with CLIP's image encoder and compared the same way. |
+| Content-based recommendations | Each user has a *taste vector*, the recency-weighted mean of the embeddings of the products they bought. It is searched within the user's favourite categories, excluding past purchases. |
+| Collaborative recommendations | User-based collaborative filtering. Users are compared by cosine similarity on the sparse user × product purchase matrix, and each product is scored by the similarity-weighted votes of the nearest neighbours. |
+| Shopping assistant (RAG) | The LLM turns a message into a structured `SearchIntent`: a visual query plus category, brand, colour, price and rating filters. Qdrant retrieves the matching products, and the answer cites only those products. |
 
-Cold-start users fall back to a Bayesian-average popularity ranking.
+Users without usable purchase history get a Bayesian-average popularity ranking, which also fills
+collaborative lists that come up short.
 
 ## Screenshots
 
-**Content-based recommendations.** The shopper's CLIP taste vector (built from 45 past purchases) retrieves visually consistent items: leggings and slim-fit jeans.
+### Content-based recommendations
+
+The taste vector built from this shopper's 45 purchases retrieves visually similar items, mostly leggings and slim-fit jeans.
 
 ![Content-based recommendations](docs/screenshots/recommendations-content.jpg)
 
-**Collaborative recommendations.** Products bought by the most similar shoppers. The demo shoppers and purchases are synthetic, so neighbour similarity is low (≈ 0.06).
+### Collaborative recommendations
+
+Products bought by the most similar shoppers. The demo shoppers and their purchases are synthetic, so similarity between neighbours is low (about 0.06).
 
 ![Collaborative recommendations](docs/screenshots/recommendations-collaborative.jpg)
 
-**Text → image search.** "red floral summer dress", matched against product photos with no keyword search involved.
+### Text-to-image search
 
-![Text to image search](docs/screenshots/text-search.jpg)
+The query "red floral summer dress" is compared with product photos directly; product titles are not searched.
 
-**Image search.** The query photo is a dress that is *not* in the index; the nearest neighbours share its cut, length and print.
+![Text-to-image search](docs/screenshots/text-search.jpg)
+
+### Image search
+
+The query photo is a dress that is not in the index. The closest match is a maxi dress from the same brand, followed by other floral dresses.
 
 ![Image search](docs/screenshots/image-search.jpg)
 
-**Shopping assistant.** The LLM extracts the intent (category, max price, minimum rating), Qdrant applies it as a metadata filter, and the answer only cites retrieved products.
+### Shopping assistant
+
+The LLM extracts the intent (category, maximum price, minimum rating), Qdrant applies it as a metadata filter, and the answer cites only the retrieved products.
 
 ![Shopping assistant](docs/screenshots/shopping-assistant.jpg)
 
