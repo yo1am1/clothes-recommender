@@ -13,6 +13,28 @@ A compact, end-to-end recommender for a fashion catalog that combines **vector s
 
 Cold-start users fall back to a Bayesian-average popularity ranking.
 
+## Screenshots
+
+**Content-based recommendations.** The shopper's CLIP taste vector (built from 45 past purchases) retrieves visually consistent items: leggings and slim-fit jeans.
+
+![Content-based recommendations](docs/screenshots/recommendations-content.jpg)
+
+**Collaborative recommendations.** Products bought by the most similar shoppers. The demo shoppers and purchases are synthetic, so neighbour similarity is low (≈ 0.06).
+
+![Collaborative recommendations](docs/screenshots/recommendations-collaborative.jpg)
+
+**Text → image search.** "red floral summer dress", matched against product photos with no keyword search involved.
+
+![Text to image search](docs/screenshots/text-search.jpg)
+
+**Image search.** The query photo is a dress that is *not* in the index; the nearest neighbours share its cut, length and print.
+
+![Image search](docs/screenshots/image-search.jpg)
+
+**Shopping assistant.** The LLM extracts the intent (category, max price, minimum rating), Qdrant applies it as a metadata filter, and the answer only cites retrieved products.
+
+![Shopping assistant](docs/screenshots/shopping-assistant.jpg)
+
 ## Architecture
 
 ```mermaid
@@ -45,6 +67,7 @@ src/clothes_recommender/
 ├── api.py             # FastAPI app
 └── ui.py              # Streamlit client
 scripts/build_index.py # Download images, embed with CLIP, upsert into Qdrant
+scripts/take_screenshots.py # Re-capture the README screenshots with Playwright
 ```
 
 ## Quick start
@@ -55,7 +78,7 @@ Requires [uv](https://docs.astral.sh/uv/) and Python 3.13.
 uv sync --all-extras
 cp .env.example .env                                   # optional: configure an LLM for the chat tab
 
-uv run python -m scripts.build_index --limit 2000      # quick demo index
+uv run python -m scripts.build_index --limit 3000      # demo index: ~2.5 min on a 20-core CPU
 uv run uvicorn clothes_recommender.api:create_app --factory --reload   # http://localhost:8000/docs
 uv run streamlit run src/clothes_recommender/ui.py     # http://localhost:8501
 ```
@@ -68,7 +91,7 @@ process at a time: build the index before starting the API (or point both at a Q
 
 ```bash
 docker compose up --build
-docker compose exec api python -m scripts.build_index --limit 2000
+docker compose exec api python -m scripts.build_index --limit 3000
 ```
 
 ### LLM configuration
@@ -106,4 +129,7 @@ Interactive docs at `http://localhost:8000/docs`.
 uv run pytest                        # fast, offline unit tests (fake encoder, in-memory Qdrant, fake LLM)
 uv run pytest -m integration        # tests that download the real CLIP model
 uv run ruff check . && uv run ruff format --check .
+
+# Re-capture README screenshots (API + UI running; uses the local Google Chrome)
+uv run python -m scripts.take_screenshots --query-image path/to/garment.jpg
 ```
