@@ -1,38 +1,34 @@
 """Non-personalised ranking: the fallback when there is no history to learn from."""
 
-import math
 from collections.abc import Collection
+from datetime import timedelta
 from itertools import islice
 
-from clothes_recommender.catalog import ProductCatalog
+from clothes_recommender.catalog import CustomerData
 from clothes_recommender.domain import ScoredProduct
 
-# Bayesian-average prior: every product is scored as if it already had
-# PRIOR_REVIEW_COUNT extra reviews of PRIOR_RATING stars.
-PRIOR_RATING = 3.5
-PRIOR_REVIEW_COUNT = 20
-
-
-def _popularity_score(rating: float, review_count: int) -> float:
-    """Bayesian-average rating x log(1 + review count).
-
-    A raw mean lets one 5-star review outrank thousands of 4.6-star ones. Shrinking each
-    rating towards the prior stops products with few reviews from ranking on luck, and the
-    log term rewards review volume with diminishing returns, so a few best-sellers don't
-    fill the whole list.
-    """
-    bayesian_rating = (PRIOR_RATING * PRIOR_REVIEW_COUNT + rating * review_count) / (
-        PRIOR_REVIEW_COUNT + review_count
-    )
-    return bayesian_rating * math.log1p(review_count)
+# Fashion demand moves fast: what sold in the last two weeks predicts next week's sales far
+# better than all-time totals (it was the strongest simple baseline in the H&M competition).
+POPULARITY_WINDOW_DAYS = 14
 
 
 class PopularityRecommender:
-    def __init__(self, catalog: ProductCatalog) -> None:
-        scored = [
-            ScoredProduct(p.product_id, _popularity_score(p.rating, p.review_count))
-            for p in catalog
-        ]
+    """Ranks products by how often they were bought in the most recent window of the data.
+
+    The window ends at the latest purchase in the data, not today, so the ranking is
+    reproducible for a fixed dataset.
+    """
+
+    def __init__(self, customers: CustomerData) -> None:
+        purchases = customers.purchases
+        if purchases.empty:
+            self._ranking: list[ScoredProduct] = []
+            return
+        window_start = purchases["purchase_date"].max() - timedelta(days=POPULARITY_WINDOW_DAYS)
+        counts = purchases.loc[
+            purchases["purchase_date"] > window_start, "product_id"
+        ].value_counts()
+        scored = [ScoredProduct(int(pid), float(count)) for pid, count in counts.items()]
         self._ranking = sorted(scored, key=lambda s: (-s.score, s.product_id))
 
     def top(self, top_k: int, exclude_ids: Collection[int] = ()) -> list[ScoredProduct]:

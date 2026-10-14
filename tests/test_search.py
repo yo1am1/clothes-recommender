@@ -20,7 +20,9 @@ def test_by_text_returns_best_match_first(search: ProductSearch):
 
 def test_by_text_applies_filter(search: ProductSearch):
     hits = search.by_text(
-        "Cotton Polo Shirt", top_k=10, product_filter=ProductFilter(categories=("shoes",))
+        "Cotton Polo Shirt",
+        top_k=10,
+        product_filter=ProductFilter(product_types=("Boots", "Sneakers")),
     )
 
     assert {hit.product_id for hit in hits} == {5, 6}

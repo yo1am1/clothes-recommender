@@ -10,8 +10,8 @@ from qdrant_client import QdrantClient, models
 from clothes_recommender.config import Settings
 from clothes_recommender.domain import Product, ProductFilter, ScoredProduct
 
-_KEYWORD_FIELDS = ("category", "brand", "color")
-_FLOAT_FIELDS = ("price", "rating")
+_KEYWORD_FIELDS = ("product_type", "section", "colour")
+_FLOAT_FIELDS = ("price",)
 
 
 class IndexNotBuiltError(RuntimeError):
@@ -145,11 +145,10 @@ def _normalise(value: str) -> str:
 
 def _payload(product: Product) -> dict[str, str | float]:
     return {
-        "category": _normalise(product.category),
-        "brand": _normalise(product.brand),
-        "color": _normalise(product.color),
+        "product_type": _normalise(product.product_type),
+        "section": _normalise(product.section),
+        "colour": _normalise(product.colour),
         "price": product.price,
-        "rating": product.rating,
     }
 
 
@@ -159,9 +158,9 @@ def _to_qdrant_filter(product_filter: ProductFilter | None) -> models.Filter | N
 
     must: list[models.Condition] = []
     keyword_constraints = {
-        "category": product_filter.categories,
-        "brand": product_filter.brands,
-        "color": product_filter.colors,
+        "product_type": product_filter.product_types,
+        "section": product_filter.sections,
+        "colour": product_filter.colours,
     }
     for field, values in keyword_constraints.items():
         if values:
@@ -170,9 +169,6 @@ def _to_qdrant_filter(product_filter: ProductFilter | None) -> models.Filter | N
     if product_filter.min_price is not None or product_filter.max_price is not None:
         price_range = models.Range(gte=product_filter.min_price, lte=product_filter.max_price)
         must.append(models.FieldCondition(key="price", range=price_range))
-    if product_filter.min_rating is not None:
-        rating_range = models.Range(gte=product_filter.min_rating)
-        must.append(models.FieldCondition(key="rating", range=rating_range))
 
     must_not: list[models.Condition] = []
     if product_filter.exclude_ids:

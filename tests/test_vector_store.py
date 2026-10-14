@@ -59,15 +59,14 @@ def test_search_ranks_exact_match_first(vector_store: ProductVectorStore, fake_e
     ("product_filter", "expected_ids"),
     [
         (ProductFilter(), {1, 2, 3, 4, 5, 6}),
-        (ProductFilter(categories=("shoes", "jeans")), {1, 2, 5, 6}),
-        (ProductFilter(brands=("  Levi's ",)), {1, 4}),
-        (ProductFilter(colors=("BLACK",)), {2, 5}),
-        (ProductFilter(min_price=30.0, max_price=100.0), {1, 3, 5}),
+        (ProductFilter(product_types=("Sneakers", "Trousers")), {1, 2, 5}),
+        (ProductFilter(sections=("  menswear ",)), {1, 4}),
+        (ProductFilter(colours=("BLACK",)), {2, 5}),
+        (ProductFilter(min_price=30.0, max_price=100.0), {3, 5}),
         (ProductFilter(max_price=20.0), {4}),
-        (ProductFilter(min_rating=4.5), {4, 5}),
         (ProductFilter(exclude_ids=(1, 2, 3)), {4, 5, 6}),
-        (ProductFilter(categories=("shoes",), colors=("black",)), {5}),
-        (ProductFilter(brands=("levi's",), exclude_ids=(1,)), {4}),
+        (ProductFilter(product_types=("Boots", "Sneakers"), colours=("black",)), {5}),
+        (ProductFilter(sections=("Ladieswear",), exclude_ids=(2,)), {3, 6}),
     ],
 )
 def test_filters_combine_and_across_fields_or_within(

@@ -18,14 +18,13 @@ class SearchIntent(BaseModel):
 
     query: str = Field(
         description="Visual description of the wanted item for image search, "
-        "e.g. 'red floral summer dress'. Leave out price, rating and brand."
+        "e.g. 'red floral summer dress'. Leave out price and audience."
     )
-    categories: list[str] = Field(default_factory=list, description="Only known categories.")
-    brands: list[str] = Field(default_factory=list)
-    colors: list[str] = Field(default_factory=list)
-    min_price: float | None = None
-    max_price: float | None = None
-    min_rating: float | None = Field(default=None, description="Minimum rating out of 5.")
+    product_types: list[str] = Field(default_factory=list, description="Only known product types.")
+    sections: list[str] = Field(default_factory=list, description="Only known sections.")
+    colours: list[str] = Field(default_factory=list, description="Only known colours.")
+    min_price: float | None = Field(default=None, description="Minimum price in euros.")
+    max_price: float | None = Field(default=None, description="Maximum price in euros.")
     wants_products: bool = Field(
         default=True,
         description="False for small talk or questions that need no product search.",
@@ -33,18 +32,27 @@ class SearchIntent(BaseModel):
 
     def to_filter(self) -> ProductFilter:
         return ProductFilter(
-            categories=tuple(self.categories),
-            brands=tuple(self.brands),
-            colors=tuple(self.colors),
+            product_types=tuple(self.product_types),
+            sections=tuple(self.sections),
+            colours=tuple(self.colours),
             min_price=self.min_price,
             max_price=self.max_price,
-            min_rating=self.min_rating,
         )
 
 
 class IntentExtractor:
-    def __init__(self, chat_model: BaseChatModel, categories: Sequence[str]) -> None:
-        self._categories_by_key = {category.lower(): category for category in categories}
+    def __init__(
+        self,
+        chat_model: BaseChatModel,
+        product_types: Sequence[str],
+        sections: Sequence[str],
+        colours: Sequence[str],
+    ) -> None:
+        self._vocabularies = {
+            "product_types": _by_key(product_types),
+            "sections": _by_key(sections),
+            "colours": _by_key(colours),
+        }
         # Tool calling instead of OpenAI's default strict json_schema mode: many
         # OpenAI-compatible gateways and open models reject json_schema, while tool calling
         # is supported almost everywhere. include_raw=True returns parse errors instead of
@@ -52,7 +60,12 @@ class IntentExtractor:
         structured_model = chat_model.with_structured_output(
             SearchIntent, method="function_calling", include_raw=True
         )
-        self._chain = INTENT_PROMPT.partial(categories=", ".join(categories)) | structured_model
+        prompt = INTENT_PROMPT.partial(
+            product_types=", ".join(product_types),
+            sections=", ".join(sections),
+            colours=", ".join(colours),
+        )
+        self._chain = prompt | structured_model
 
     def extract(self, message: str, history: Sequence[BaseMessage]) -> SearchIntent:
         result = self._chain.invoke({"message": message, "history": list(history)})
@@ -63,21 +76,25 @@ class IntentExtractor:
                 result["parsing_error"] or "model returned no structured output",
             )
             return SearchIntent(query=message)
-        return intent.model_copy(
-            update={
-                # An empty CLIP query would match arbitrary products; the message is a safe default.
-                "query": intent.query.strip() or message,
-                "categories": self._known_categories(intent.categories),
-            }
-        )
+        known_values = {
+            field: _known(getattr(intent, field), vocabulary, field)
+            for field, vocabulary in self._vocabularies.items()
+        }
+        # An empty CLIP query would match arbitrary products; the message is a safe default.
+        return intent.model_copy(update={"query": intent.query.strip() or message, **known_values})
 
-    def _known_categories(self, categories: Sequence[str]) -> list[str]:
-        """Map to the catalog's spelling, dropping categories the catalog doesn't have."""
-        known = []
-        for category in categories:
-            canonical = self._categories_by_key.get(category.strip().lower())
-            if canonical is None:
-                logger.info("Ignoring unknown category %r from the LLM.", category)
-            else:
-                known.append(canonical)
-        return known
+
+def _by_key(values: Sequence[str]) -> dict[str, str]:
+    return {value.lower(): value for value in values}
+
+
+def _known(values: Sequence[str], vocabulary: dict[str, str], field: str) -> list[str]:
+    """Map to the catalog's spelling, dropping values the catalog doesn't have."""
+    known = []
+    for value in values:
+        canonical = vocabulary.get(value.strip().lower())
+        if canonical is None:
+            logger.info("Ignoring unknown %s value %r from the LLM.", field, value)
+        else:
+            known.append(canonical)
+    return known

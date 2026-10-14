@@ -42,7 +42,10 @@ class ShoppingAssistant:
         self._catalog = catalog
         self._top_k = top_k
         self._intent_extractor = intent_extractor or IntentExtractor(
-            chat_model, catalog.categories()
+            chat_model,
+            product_types=catalog.distinct("product_type"),
+            sections=catalog.distinct("section"),
+            colours=catalog.distinct("colour"),
         )
         self._answer_chain = ANSWER_PROMPT | chat_model | StrOutputParser()
 

@@ -2,6 +2,7 @@
 
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 
 from clothes_recommender.catalog import CustomerData, ProductCatalog
 from clothes_recommender.chat.assistant import ShoppingAssistant
@@ -25,18 +26,19 @@ class Services:
     search: ProductSearch
     content_based: ContentBasedRecommender
     collaborative: CollaborativeRecommender
+    images_dir: Path
     # None when no LLM is configured: every other feature still works without an API key.
     assistant: ShoppingAssistant | None
 
 
 def build_services(settings: Settings) -> Services:
     catalog = ProductCatalog.from_parquet(settings.products_path)
-    customers = CustomerData.from_csv(settings.users_path, settings.purchases_path)
+    customers = CustomerData.from_parquet(settings.users_path, settings.purchases_path)
     store = ProductVectorStore.from_settings(settings)
     encoder = ClipEncoder(settings.clip_model_name)
     encoder.load()
     search = ProductSearch(encoder, store)
-    popularity = PopularityRecommender(catalog)
+    popularity = PopularityRecommender(customers)
 
     assistant = None
     if settings.llm_configured:
@@ -51,5 +53,6 @@ def build_services(settings: Settings) -> Services:
         search=search,
         content_based=ContentBasedRecommender(customers, catalog, store, popularity),
         collaborative=CollaborativeRecommender(customers, popularity),
+        images_dir=settings.images_dir,
         assistant=assistant,
     )

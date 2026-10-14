@@ -13,31 +13,22 @@ from pydantic import BaseModel
 class Product(BaseModel):
     product_id: int
     name: str
-    category: str
-    brand: str
-    color: str
+    product_type: str
+    section: str
+    colour: str
+    description: str
     price: float
-    rating: float
-    review_count: int
-    image_url: str
-    product_url: str
 
 
 class User(BaseModel):
     user_id: int
-    name: str
-    email: str
-    city: str
-    country: str
-    gender: str
+    age: int | None
 
 
 class Purchase(BaseModel):
-    purchase_id: str
     user_id: int
     product_id: int
     purchase_date: date
-    quantity: int
 
 
 @dataclass(frozen=True)
@@ -48,12 +39,11 @@ class ProductFilter:
     Empty tuples / None mean "no constraint".
     """
 
-    categories: tuple[str, ...] = ()
-    brands: tuple[str, ...] = ()
-    colors: tuple[str, ...] = ()
+    product_types: tuple[str, ...] = ()
+    sections: tuple[str, ...] = ()
+    colours: tuple[str, ...] = ()
     min_price: float | None = None
     max_price: float | None = None
-    min_rating: float | None = None
     exclude_ids: tuple[int, ...] = ()
 
     def is_empty(self) -> bool:

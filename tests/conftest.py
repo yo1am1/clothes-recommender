@@ -39,26 +39,16 @@ class FakeEncoder:
 
 
 def _product(
-    product_id: int,
-    name: str,
-    category: str,
-    brand: str,
-    color: str,
-    price: float,
-    rating: float,
-    review_count: int,
+    product_id: int, name: str, product_type: str, section: str, colour: str, price: float
 ) -> Product:
     return Product(
         product_id=product_id,
         name=name,
-        category=category,
-        brand=brand,
-        color=color,
+        product_type=product_type,
+        section=section,
+        colour=colour,
+        description=f"{name} in {colour.lower()}.",
         price=price,
-        rating=rating,
-        review_count=review_count,
-        image_url=f"https://example.com/images/{product_id}.jpg",
-        product_url=f"https://example.com/products/{product_id}",
     )
 
 
@@ -69,14 +59,14 @@ def fake_encoder() -> FakeEncoder:
 
 @pytest.fixture
 def sample_products() -> list[Product]:
-    """Six products over four categories; brand/color are lowercase like the real data."""
+    """Six H&M-style products over five product types and three sections."""
     return [
-        _product(1, "Levi's Slim Fit Jeans", "jeans", "levi's", "blue", 40.0, 4.4, 1200),
-        _product(2, "Relaxed Fit Jeans", "jeans", "ben", "black", 25.0, 3.6, 80),
-        _product(3, "Floral Summer Dress", "western wear", "zara", "red", 35.0, 4.1, 300),
-        _product(4, "Cotton Polo Shirt", "t-shirts & polos", "levi's", "white", 18.0, 4.7, 950),
-        _product(5, "Running Sneakers", "shoes", "nike", "black", 90.0, 4.5, 5000),
-        _product(6, "Leather Ankle Boots", "shoes", "clarks", "brown", 120.0, 3.9, 40),
+        _product(1, "Slim Jeans", "Trousers", "Menswear", "Blue", 29.99),
+        _product(2, "Wide Leg Trousers", "Trousers", "Ladieswear", "Black", 24.99),
+        _product(3, "Floral Summer Dress", "Dress", "Ladieswear", "Red", 34.99),
+        _product(4, "Cotton Polo Shirt", "Polo shirt", "Menswear", "White", 17.99),
+        _product(5, "Running Sneakers", "Sneakers", "Sport", "Black", 89.99),
+        _product(6, "Leather Ankle Boots", "Boots", "Ladieswear", "Brown", 119.99),
     ]
 
 

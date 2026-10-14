@@ -44,11 +44,15 @@ class Settings(BaseSettings):
 
     @property
     def users_path(self) -> Path:
-        return self.data_dir / "users.csv"
+        return self.data_dir / "users.parquet"
 
     @property
     def purchases_path(self) -> Path:
-        return self.data_dir / "purchases.csv"
+        return self.data_dir / "purchases.parquet"
+
+    @property
+    def images_dir(self) -> Path:
+        return self.data_dir / "images"
 
     @property
     def llm_configured(self) -> bool:

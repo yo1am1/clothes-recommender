@@ -12,7 +12,7 @@ from importlib.metadata import version
 from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, Field
 
@@ -47,7 +47,6 @@ class TextSearchRequest(BaseModel):
 
 class PurchasedProduct(BaseModel):
     purchase_date: date
-    quantity: int
     product: Product
 
 
@@ -136,6 +135,14 @@ def create_app(services: Services | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail=f"Product {product_id} not found.")
         return product
 
+    @app.get("/products/{product_id}/image", response_class=FileResponse)
+    def get_product_image(product_id: int, services: ServicesDep) -> FileResponse:
+        # product_id is an int, so the path cannot escape images_dir.
+        path = services.images_dir / f"{product_id}.jpg"
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail=f"No image for product {product_id}.")
+        return FileResponse(path, media_type="image/jpeg")
+
     @app.post("/search/text")
     def search_by_text(request: TextSearchRequest, services: ServicesDep) -> list[ProductHit]:
         return _to_hits(services, services.search.by_text(request.query, request.top_k))
@@ -156,7 +163,7 @@ def create_app(services: Services | None = None) -> FastAPI:
         if user is None:
             raise UnknownUserError(user_id)
         purchases = [
-            PurchasedProduct(purchase_date=p.purchase_date, quantity=p.quantity, product=product)
+            PurchasedProduct(purchase_date=p.purchase_date, product=product)
             for p in services.customers.purchases_for(user_id)
             if (product := services.catalog.get(p.product_id)) is not None
         ]

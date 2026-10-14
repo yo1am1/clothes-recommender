@@ -10,7 +10,10 @@ from clothes_recommender.domain import Product, Purchase, User
 
 class DataFileMissingError(FileNotFoundError):
     def __init__(self, path: Path) -> None:
-        super().__init__(f"Data file not found: {path}. Run the app from the repository root.")
+        super().__init__(
+            f"Data file not found: {path}. Prepare the dataset with "
+            "`uv run python -m scripts.prepare_data` (see README)."
+        )
 
 
 def _require(path: Path) -> Path:
@@ -43,26 +46,35 @@ class ProductCatalog:
         """Return products in the given order, silently skipping unknown ids."""
         return [p for pid in product_ids if (p := self.get(pid)) is not None]
 
-    def categories(self) -> list[str]:
-        return sorted(self._df["category"].unique().tolist())
+    def distinct(self, field: str) -> list[str]:
+        """Sorted distinct values of a text field, e.g. every product type."""
+        return sorted(self._df[field].unique().tolist())
 
 
 class CustomerData:
     """Users and their purchase history."""
 
     def __init__(self, users: pd.DataFrame, purchases: pd.DataFrame) -> None:
+        # Nullable columns (e.g. unknown age) must become None, not NaN, for pydantic.
+        users = users.astype(object).where(users.notna(), None)
         self._users = users.set_index("user_id", drop=False)
         self._purchases = purchases.assign(
             purchase_date=pd.to_datetime(purchases["purchase_date"]).dt.date
         )
+        # Grouped once here so profile and recommendation requests don't rescan every purchase.
+        ordered = self._purchases.sort_values(["user_id", "purchase_date"], ascending=[True, False])
+        self._purchases_by_user: dict[int, list[Purchase]] = {
+            int(user_id): [Purchase.model_validate(r) for r in group.to_dict(orient="records")]
+            for user_id, group in ordered.groupby("user_id")
+        }
 
     @classmethod
-    def from_csv(cls, users_path: Path, purchases_path: Path) -> "CustomerData":
-        return cls(pd.read_csv(_require(users_path)), pd.read_csv(_require(purchases_path)))
+    def from_parquet(cls, users_path: Path, purchases_path: Path) -> "CustomerData":
+        return cls(pd.read_parquet(_require(users_path)), pd.read_parquet(_require(purchases_path)))
 
     @property
     def purchases(self) -> pd.DataFrame:
-        """Columns: purchase_id, user_id, product_id, purchase_date, quantity."""
+        """Columns: user_id, product_id, purchase_date."""
         return self._purchases
 
     def user_ids(self) -> list[int]:
@@ -75,6 +87,4 @@ class CustomerData:
 
     def purchases_for(self, user_id: int) -> list[Purchase]:
         """Purchases of one user, most recent first."""
-        rows = self._purchases[self._purchases["user_id"] == user_id]
-        rows = rows.sort_values("purchase_date", ascending=False)
-        return [Purchase.model_validate(r) for r in rows.to_dict(orient="records")]
+        return self._purchases_by_user.get(user_id, [])

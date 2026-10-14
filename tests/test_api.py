@@ -32,47 +32,15 @@ class BrokenAssistant:
 
 
 @pytest.fixture
-def services(sample_catalog, vector_store, fake_encoder) -> Services:
-    users = pd.DataFrame(
-        [
-            {
-                "user_id": uid,
-                "name": f"User {uid}",
-                "email": f"u{uid}@example.com",
-                "city": "Utrecht",
-                "country": "Netherlands",
-                "gender": "F",
-            }
-            for uid in (1, 2)
-        ]
-    )
+def services(sample_catalog, vector_store, fake_encoder, tmp_path) -> Services:
+    users = pd.DataFrame({"user_id": [1, 2], "age": [34, 27]})
     purchases = pd.DataFrame(
-        [
-            {
-                "purchase_id": "a",
-                "user_id": 1,
-                "product_id": 1,
-                "purchase_date": date(2025, 1, 2),
-                "quantity": 1,
-            },
-            {
-                "purchase_id": "b",
-                "user_id": 2,
-                "product_id": 1,
-                "purchase_date": date(2025, 1, 3),
-                "quantity": 1,
-            },
-            {
-                "purchase_id": "c",
-                "user_id": 2,
-                "product_id": 3,
-                "purchase_date": date(2025, 1, 4),
-                "quantity": 2,
-            },
-        ]
+        [(1, 1, date(2020, 9, 2)), (2, 1, date(2020, 9, 3)), (2, 3, date(2020, 9, 4))],
+        columns=["user_id", "product_id", "purchase_date"],
     )
+    Image.new("RGB", (4, 6), "red").save(tmp_path / "3.jpg")
     customers = CustomerData(users, purchases)
-    popularity = PopularityRecommender(sample_catalog)
+    popularity = PopularityRecommender(customers)
     return Services(
         catalog=sample_catalog,
         customers=customers,
@@ -80,6 +48,7 @@ def services(sample_catalog, vector_store, fake_encoder) -> Services:
         search=ProductSearch(fake_encoder, vector_store),
         content_based=ContentBasedRecommender(customers, sample_catalog, vector_store, popularity),
         collaborative=CollaborativeRecommender(customers, popularity),
+        images_dir=tmp_path,
         assistant=None,
     )
 
@@ -101,6 +70,13 @@ def test_health_reports_index_size_and_chat_status(client) -> None:
 def test_get_product_and_missing_product(client) -> None:
     assert client.get("/products/3").json()["name"] == "Floral Summer Dress"
     assert client.get("/products/999").status_code == 404
+
+
+def test_product_image_is_served_from_images_dir(client) -> None:
+    response = client.get("/products/3/image")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"
+    assert client.get("/products/1/image").status_code == 404
 
 
 def test_text_search_returns_scored_products(client) -> None:

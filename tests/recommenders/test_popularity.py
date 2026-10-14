@@ -1,36 +1,32 @@
+from datetime import date
+
 import pytest
 
 from clothes_recommender.recommenders.popularity import PopularityRecommender
 
+LAST_DAY = date(2020, 9, 22)
+
 
 @pytest.fixture
-def recommender(make_catalog) -> PopularityRecommender:
-    return PopularityRecommender(
-        make_catalog(
-            [
-                (1, "jeans", 5.0, 1),  # perfect but unproven
-                (2, "jeans", 4.6, 1000),
-                (3, "shoes", 4.0, 1000),
-                (4, "shoes", 0.0, 0),  # never reviewed
-                (5, "shoes", 4.0, 1000),  # identical to 3
-            ]
-        )
-    )
+def recommender(make_customers) -> PopularityRecommender:
+    purchases = [
+        *[(1, 1, LAST_DAY)] * 3,
+        *[(2, 2, date(2020, 9, 20))] * 2,
+        *[(3, 3, date(2020, 9, 9))] * 2,  # ties with product 2
+        *[(4, 4, date(2020, 9, 1))] * 5,  # best-seller, but three weeks ago
+        (5, 5, date(2020, 9, 8)),  # exactly 14 days before the last day: outside the window
+    ]
+    return PopularityRecommender(make_customers([1, 2, 3, 4, 5], purchases))
 
 
-def test_well_reviewed_products_beat_a_single_perfect_review(recommender) -> None:
-    assert [p.product_id for p in recommender.top(5)] == [2, 3, 5, 1, 4]
-
-
-def test_ties_are_broken_by_product_id(recommender) -> None:
-    top = recommender.top(5)
-    assert top[1].score == top[2].score
-    assert (top[1].product_id, top[2].product_id) == (3, 5)
-
-
-def test_unreviewed_product_scores_zero(recommender) -> None:
-    assert recommender.top(5)[-1].score == 0.0
+def test_ranks_by_purchases_in_the_last_two_weeks(recommender) -> None:
+    assert [p.product_id for p in recommender.top(10)] == [1, 2, 3]
+    assert [p.score for p in recommender.top(10)] == [3.0, 2.0, 2.0]
 
 
 def test_top_skips_excluded_ids_and_respects_top_k(recommender) -> None:
-    assert [p.product_id for p in recommender.top(2, exclude_ids={2, 3})] == [5, 1]
+    assert [p.product_id for p in recommender.top(1, exclude_ids={1})] == [2]
+
+
+def test_no_purchases_means_no_ranking(make_customers) -> None:
+    assert PopularityRecommender(make_customers([1], [])).top(5) == []

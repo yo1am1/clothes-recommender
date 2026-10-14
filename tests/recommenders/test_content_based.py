@@ -10,21 +10,21 @@ from clothes_recommender.recommenders.content_based import ContentBasedRecommend
 from clothes_recommender.recommenders.popularity import PopularityRecommender
 from clothes_recommender.vector_store import ProductVectorStore
 
-JEANS, SHOES, LINGERIE, TSHIRTS = "jeans", "shoes", "lingerie & nightwear", "t-shirts & polos"
+TROUSERS, SNEAKERS, BRA, TSHIRT = "Trousers", "Sneakers", "Bra", "T-shirt"
 AXIS = np.eye(4, dtype=np.float32)
 
-# product_id -> (category, stored vector or None when the product is not indexed)
+# product_id -> (product type, stored vector or None when the product is not indexed)
 PRODUCTS = {
-    1: (JEANS, AXIS[0]),
-    2: (JEANS, AXIS[1]),
-    5: (SHOES, None),
-    6: (TSHIRTS, AXIS[2]),
-    7: (SHOES, AXIS[3]),
-    8: (LINGERIE, AXIS[3]),
-    10: (JEANS, AXIS[0]),
-    11: (JEANS, AXIS[1]),
-    12: (SHOES, AXIS[1]),
-    13: (TSHIRTS, AXIS[2]),
+    1: (TROUSERS, AXIS[0]),
+    2: (TROUSERS, AXIS[1]),
+    5: (SNEAKERS, None),
+    6: (TSHIRT, AXIS[2]),
+    7: (SNEAKERS, AXIS[3]),
+    8: (BRA, AXIS[3]),
+    10: (TROUSERS, AXIS[0]),
+    11: (TROUSERS, AXIS[1]),
+    12: (SNEAKERS, AXIS[1]),
+    13: (TSHIRT, AXIS[2]),
 }
 PURCHASES = [
     (1, 1, date(2025, 1, 1)),
@@ -40,8 +40,12 @@ PURCHASES = [
 
 @pytest.fixture
 def catalog(make_catalog):
-    # Popularity differs per product so the fallback ranking is unambiguous.
-    return make_catalog([(pid, category, 4.0, pid * 10) for pid, (category, _) in PRODUCTS.items()])
+    return make_catalog([(pid, product_type) for pid, (product_type, _) in PRODUCTS.items()])
+
+
+@pytest.fixture
+def customers(make_customers):
+    return make_customers([1, 2, 3, 4], PURCHASES)
 
 
 @pytest.fixture
@@ -56,29 +60,28 @@ def store(catalog):
 
 
 @pytest.fixture
-def popular(catalog) -> PopularityRecommender:
-    return PopularityRecommender(catalog)
+def popular(customers) -> PopularityRecommender:
+    return PopularityRecommender(customers)
 
 
 @pytest.fixture
-def recommender(make_customers, catalog, store, popular) -> ContentBasedRecommender:
-    customers = make_customers([1, 2, 3, 4], PURCHASES)
+def recommender(customers, catalog, store, popular) -> ContentBasedRecommender:
     return ContentBasedRecommender(customers, catalog, store, popular)
 
 
 def test_recent_purchases_dominate_the_taste_vector(recommender) -> None:
     recommendations = recommender.recommend(1)
 
-    # Shoes (12) are outside the user's categories; 1 and 2 are already bought.
+    # Sneakers (12) are outside the user's product types; 1 and 2 are already bought.
     assert [r.product_id for r in recommendations] == [11, 10]
     norm = sqrt(1 + (1 / 8) ** 2)
     assert recommendations[0].score == pytest.approx(1 / norm, rel=1e-5)
     assert recommendations[1].score == pytest.approx((1 / 8) / norm, rel=1e-5)
 
 
-def test_search_is_limited_to_the_top_three_categories(recommender, catalog) -> None:
-    # User 4: two jeans, then one each of shoes, lingerie and t-shirts. The tie is
-    # broken alphabetically, so t-shirts are dropped.
+def test_search_is_limited_to_the_top_three_product_types(recommender, catalog) -> None:
+    # User 4: two trousers, then one each of sneakers, bra and T-shirt. The tie is
+    # broken alphabetically, so the T-shirt is dropped.
     recommended = catalog.get_many(r.product_id for r in recommender.recommend(4))
 
     assert {p.product_id for p in recommended} == {10, 11, 12}

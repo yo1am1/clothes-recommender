@@ -36,13 +36,21 @@ def call_api(method: str, path: str, **kwargs) -> dict | list | None:
     return response.json()
 
 
+@st.cache_data(max_entries=2000)
+def product_photo(product_id: int) -> bytes | None:
+    # Fetched server-side rather than by URL: in Docker the browser can't resolve the API host.
+    response = api_client().get(f"/products/{product_id}/image")
+    return response.content if response.is_success else None
+
+
 def show_products(products: list[dict], scores: list[float] | None = None) -> None:
     columns = st.columns(GRID_COLUMNS)
     for i, product in enumerate(products):
         with columns[i % GRID_COLUMNS]:
-            st.image(product["image_url"], width=PHOTO_WIDTH)
-            st.markdown(f"[{product['name'][:60]}]({product['product_url']})")
-            caption = f"${product['price']:.2f} · ★ {product['rating']:.1f} · {product['brand']}"
+            if photo := product_photo(product["product_id"]):
+                st.image(photo, width=PHOTO_WIDTH)
+            st.markdown(product["name"])
+            caption = f"€{product['price']:.2f} · {product['product_type']} · {product['colour']}"
             if scores is not None:
                 caption += f" · score {scores[i]:.3f}"
             st.caption(caption)
@@ -74,9 +82,8 @@ def recommendations_tab() -> None:
     with right:
         if profile:
             user = profile["user"]
-            st.markdown(
-                f"**{user['name']}** · {user['city']}, {user['country']} · {user['gender']}"
-            )
+            age = user["age"] if user["age"] is not None else "unknown"
+            st.markdown(f"**Customer #{user['user_id']}** · age {age}")
             with st.expander(f"Purchase history ({len(profile['purchases'])} items)"):
                 show_products([p["product"] for p in profile["purchases"]])
 
@@ -116,7 +123,7 @@ def chat_tab() -> None:
             if turn.get("products"):
                 show_products(turn["products"])
 
-    message = st.chat_input("Ask Clothy, e.g. 'black jeans under $30 with good ratings'")
+    message = st.chat_input("Ask Clothy, e.g. 'black wide-leg trousers for women under €40'")
     if not message:
         return
     with st.chat_message("user"):
