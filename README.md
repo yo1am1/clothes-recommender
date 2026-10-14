@@ -1,18 +1,18 @@
 # Clothy: multimodal fashion recommender
 
-Clothy is an end-to-end recommender for a fashion catalog. It combines CLIP vector search,
-two classic recommender algorithms and an LLM shopping assistant:
+Clothy is an end-to-end recommender built on real H&M purchase data. It combines CLIP vector
+search, two classic recommender algorithms and an LLM shopping assistant:
 
 | Feature | How it works |
 |---|---|
 | Text-to-image search | The query is embedded with CLIP's text encoder and compared with the CLIP image embeddings of every product in Qdrant. |
 | Image search | An uploaded photo is embedded with CLIP's image encoder and compared the same way. |
-| Content-based recommendations | Each user has a *taste vector*, the recency-weighted mean of the embeddings of the products they bought. It is searched within the user's favourite categories, excluding past purchases. |
+| Content-based recommendations | Each user has a *taste vector*, the recency-weighted mean of the embeddings of the products they bought. It is searched within the product types the user buys most, excluding past purchases. |
 | Collaborative recommendations | User-based collaborative filtering. Users are compared by cosine similarity on the sparse user × product purchase matrix, and each product is scored by the similarity-weighted votes of the nearest neighbours. |
-| Shopping assistant (RAG) | The LLM turns a message into a structured `SearchIntent`: a visual query plus category, brand, colour, price and rating filters. Qdrant retrieves the matching products, and the answer cites only those products. |
+| Shopping assistant (RAG) | The LLM turns a message into a structured `SearchIntent`: a visual query plus product type, section (e.g. Menswear), colour and price filters. Qdrant retrieves the matching products, and the answer cites only those products. |
 
-Users without usable purchase history get a Bayesian-average popularity ranking, which also fills
-collaborative lists that come up short.
+Users without usable purchase history get the products bought most in the last two weeks of
+data, which also fill collaborative lists that come up short.
 
 ## Screenshots
 
@@ -46,6 +46,18 @@ The LLM extracts the intent (category, maximum price, minimum rating), Qdrant ap
 
 ![Shopping assistant](docs/screenshots/shopping-assistant.jpg)
 
+## Data
+
+The app uses the [H&M Personalized Fashion Recommendations](https://www.kaggle.com/competitions/h-and-m-personalized-fashion-recommendations)
+dataset from Kaggle: 105k articles with photos and 31.8M real purchases from 2018 to 2020.
+`scripts/prepare_data.py` keeps the last 12 weeks of transactions, samples 5,000 customers
+with at least five purchases, and extracts the photos of the products they bought.
+
+The dataset's prices are normalised. Multiplying them by 590 (a convention from the Kaggle
+competition discussion) gives realistic euro price points such as €29.99, so the prices shown
+are approximations. H&M licenses the data for non-commercial research use, so it is not part
+of this repository.
+
 ## Architecture
 
 ```mermaid
@@ -77,7 +89,8 @@ src/clothes_recommender/
 ├── services.py        # Composition root
 ├── api.py             # FastAPI app
 └── ui.py              # Streamlit client
-scripts/build_index.py # Download images, embed with CLIP, upsert into Qdrant
+scripts/prepare_data.py # Sample the H&M Kaggle archive into data/
+scripts/build_index.py # Embed product photos with CLIP, upsert into Qdrant
 scripts/take_screenshots.py # Re-capture the README screenshots with Playwright
 ```
 
@@ -85,9 +98,16 @@ scripts/take_screenshots.py # Re-capture the README screenshots with Playwright
 
 Requires [uv](https://docs.astral.sh/uv/) and Python 3.13.
 
+The dataset needs a free Kaggle account with the
+[competition rules](https://www.kaggle.com/competitions/h-and-m-personalized-fashion-recommendations/rules)
+accepted and an API token in `~/.kaggle/kaggle.json`. The download is about 30 GB.
+
 ```bash
 uv sync --all-extras
 cp .env.example .env                                   # optional: configure an LLM for the chat tab
+
+uvx kaggle competitions download -c h-and-m-personalized-fashion-recommendations -p data/raw
+uv run python -m scripts.prepare_data
 
 uv run python -m scripts.build_index --limit 3000      # demo index: ~2.5 min on a 20-core CPU
 uv run uvicorn clothes_recommender.api:create_app --factory --reload   # http://localhost:8000/docs
