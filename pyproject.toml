@@ -64,6 +64,7 @@ select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
 
 [dependency-groups]
 dev = [
+    "playwright>=1.64.0",
     "pytest>=9.1.1",
     "ruff>=0.17.0",
 ]
