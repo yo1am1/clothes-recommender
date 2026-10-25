@@ -1,11 +1,14 @@
 """In-memory access to the product catalog, users and purchase history."""
 
+import logging
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 import pandas as pd
 
 from clothes_recommender.domain import Product, Purchase, User
+
+logger = logging.getLogger(__name__)
 
 
 class DataFileMissingError(FileNotFoundError):
@@ -88,3 +91,17 @@ class CustomerData:
     def purchases_for(self, user_id: int) -> list[Purchase]:
         """Purchases of one user, most recent first."""
         return self._purchases_by_user.get(user_id, [])
+
+
+def load_shopper_purchases(path: Path, customers: CustomerData) -> pd.DataFrame:
+    """Every shopper's purchases (shopper_id, product_id, purchase_date).
+
+    Data prepared before shopper_purchases.parquet existed falls back to the sampled
+    customers' purchases, which makes popularity and collaborative filtering much weaker.
+    """
+    if path.exists():
+        return pd.read_parquet(path)
+    logger.warning("No %s: popularity and collaborative filtering use the sample only.", path)
+    return customers.purchases.rename(columns={"user_id": "shopper_id"})[
+        ["shopper_id", "product_id", "purchase_date"]
+    ]

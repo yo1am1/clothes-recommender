@@ -354,7 +354,10 @@ def test_curated_defaults_and_all_customer_access_are_separate_per_tab(mocked_ap
         selector = next(widget for widget in app.selectbox if widget.label == label)
         assert len(selector.options) == 2
         assert "Coat connections" in selector.options[0]
-    assert next(widget for widget in app.radio if widget.label == "Strategy").value == "graph"
+    # Collaborative scores best offline, so it is the default strategy.
+    assert (
+        next(widget for widget in app.radio if widget.label == "Strategy").value == "collaborative"
+    )
     assert any(caption.value == "Explore shared coat evidence." for caption in app.caption)
     assert not any(path == "/users" for path, _ in calls)
     assert not any(path == "/users/8" for path, _ in calls)
@@ -562,8 +565,15 @@ def test_profile_history_is_limited_and_does_not_fetch_purchase_photos(mocked_ap
             "Popular in recent purchases; no personal graph connections were found.",
         ),
         (
-            ["Ranked #2 by collaborative.", "Ranked #7 by content-based."],
-            "Ranked #2 by collaborative · Ranked #7 by content-based.",
+            [
+                "3 shoppers who bought Strap top also bought this.",
+                "1 shopper who bought Socks also bought this.",
+            ],
+            "3 shoppers who bought Strap top also bought this.",
+        ),
+        (
+            ["Popular in the last week; no shopper bought it with this customer's items."],
+            "Popular in the last week; no shopper bought it with this customer's items.",
         ),
         ([], None),
     ],

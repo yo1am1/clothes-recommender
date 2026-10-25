@@ -6,11 +6,8 @@ import pytest
 from clothes_recommender.catalog import CustomerData, ProductCatalog
 from clothes_recommender.demo import select_demo_customers
 from clothes_recommender.domain import Product, ScoredProduct
-from clothes_recommender.recommenders.collaborative import SimilarUser
 from clothes_recommender.recommenders.graph import GraphRecommender
 from clothes_recommender.recommenders.popularity import PopularityRecommender
-
-GOOD_SIMILARITY = 0.3
 
 
 def product(pid: int, section: str = "Ladieswear", group: str = "Garment Upper body") -> dict:
@@ -27,22 +24,18 @@ def product(pid: int, section: str = "Ladieswear", group: str = "Garment Upper b
 
 
 class FakeCollaborative:
-    def __init__(self, similarity: dict[int, float]) -> None:
-        self._similarity = similarity
+    """Returns each customer's prepared list; score 0 marks popularity filler."""
 
-    def similar_users(self, user_id: int, top_k: int = 5) -> list[SimilarUser]:
-        value = self._similarity.get(user_id, GOOD_SIMILARITY)
-        return [SimilarUser(user_id=0, similarity=value)] if value > 0 else []
-
-
-class FakeHybrid:
-    def __init__(self, lists: dict[int, list[int]]) -> None:
+    def __init__(self, lists: dict[int, list[int]], filler: dict[int, int]) -> None:
         self._lists = lists
+        self._filler = filler
         self.calls: list[int] = []
 
     def recommend(self, user_id: int, top_k: int = 10) -> list[ScoredProduct]:
         self.calls.append(user_id)
-        return [ScoredProduct(pid, 1.0) for pid in self._lists[user_id][:top_k]]
+        ids = self._lists[user_id][:top_k]
+        evidence = len(ids) - self._filler.get(user_id, 0)
+        return [ScoredProduct(pid, 1.0 if i < evidence else 0.0) for i, pid in enumerate(ids)]
 
 
 class Shop:
@@ -53,8 +46,8 @@ class Shop:
         self.purchases: list[tuple[int, int, date]] = []
         self.users: list[int] = []
         self.links: list[tuple[int, int, int, float]] = []
-        self.hybrid: dict[int, list[int]] = {}
-        self.similarity: dict[int, float] = {}
+        self.recommended: dict[int, list[int]] = {}
+        self.filler: dict[int, int] = {}
         self._next_id = 1000
 
     def _new(self, section: str, group: str) -> int:
@@ -79,7 +72,7 @@ class Shop:
         if linked:
             complement = self._new(sections[-1], "Accessories")
             self.links.append((bought[-1], complement, 3, 2.0))
-        self.hybrid[user_id] = [
+        self.recommended[user_id] = [
             self._new(recommend_section or sections[-1], recommend_group or group)
             for _ in range(10)
         ]
@@ -94,18 +87,11 @@ class Shop:
         graph = GraphRecommender(
             customers,
             catalog,
-            PopularityRecommender(customers),
+            PopularityRecommender(customers.purchases),
             pd.DataFrame(self.links, columns=["product_id", "other_id", "count", "lift"]),
         )
-        self.fake_hybrid = FakeHybrid(self.hybrid)
-        return select_demo_customers(
-            customers,
-            catalog,
-            graph,
-            FakeCollaborative(self.similarity),
-            self.fake_hybrid,
-            limit,
-        )
+        self.collaborative = FakeCollaborative(self.recommended, self.filler)
+        return select_demo_customers(customers, catalog, graph, self.collaborative, limit)
 
 
 def ids(examples) -> list[int]:
@@ -120,7 +106,6 @@ def test_coherent_customer_with_evidence_is_selected_with_a_readable_label():
     assert example.label == "Menswear: Type Garment Upper body"
     assert example.focus_product_id == bought[-1]  # the purchase with complements
     assert "6 purchases of 6 products, mostly Menswear" in example.description
-    assert "0.30" in example.description
 
 
 @pytest.mark.parametrize(
@@ -146,17 +131,17 @@ def test_customers_failing_a_criterion_are_skipped(setup, reason):
     assert shop.select() == [], reason
 
 
-def test_customers_without_a_similar_enough_shopper_are_skipped():
+def test_lists_with_popularity_filler_are_skipped():
     shop = Shop()
     shop.customer(1, ["Ladieswear"] * 6)
-    shop.similarity[1] = 0.05
+    shop.filler[1] = 1  # one of the ten has no co-purchase evidence
     assert shop.select() == []
 
 
-def test_short_hybrid_lists_are_skipped():
+def test_short_lists_are_skipped():
     shop = Shop()
     shop.customer(1, ["Ladieswear"] * 6)
-    shop.hybrid[1] = shop.hybrid[1][:9]
+    shop.recommended[1] = shop.recommended[1][:9]
     assert shop.select() == []
 
 
@@ -193,7 +178,7 @@ def test_selection_stops_checking_once_the_limit_is_reached():
     for user in range(1, 30):
         shop.customer(user, ["Ladieswear"] * 6)
     assert len(shop.select(limit=3)) == 3
-    assert len(shop.fake_hybrid.calls) == 3
+    assert len(shop.collaborative.calls) == 3
 
 
 @pytest.mark.parametrize("limit", [0, -1])

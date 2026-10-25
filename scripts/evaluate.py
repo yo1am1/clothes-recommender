@@ -14,12 +14,11 @@ from pathlib import Path
 import pandas as pd
 from qdrant_client import QdrantClient
 
-from clothes_recommender.catalog import CustomerData, ProductCatalog
+from clothes_recommender.catalog import CustomerData, ProductCatalog, load_shopper_purchases
 from clothes_recommender.config import get_settings
 from clothes_recommender.recommenders.collaborative import CollaborativeRecommender
 from clothes_recommender.recommenders.content_based import ContentBasedRecommender
 from clothes_recommender.recommenders.popularity import PopularityRecommender
-from clothes_recommender.services import hybrid_recommender
 from clothes_recommender.vector_store import ProductVectorStore
 from scripts.prepare_data import co_purchases
 
@@ -85,19 +84,28 @@ def evaluate(data_dir: Path, qdrant_path: Path | None = None) -> dict:
             "or a larger customer sample"
         )
     customers = CustomerData(users, train)
+    # Crowd signals (popularity, collaborative filtering, co-purchase links) come from every
+    # shopper's purchases before the cutoff, as in production; older prepared data without
+    # shopper_purchases.parquet falls back to the sampled customers.
+    shoppers = load_shopper_purchases(data_dir / "shopper_purchases.parquet", customers)
+    shoppers = shoppers[pd.to_datetime(shoppers["purchase_date"]) < cutoff]
     bought = train.groupby("user_id")["product_id"].agg(set).to_dict()
     truth = holdout.groupby("user_id")["product_id"].agg(set).to_dict()
     novel = {uid: truth[uid] - bought[uid] for uid in eligible}
     novel_users = [uid for uid in eligible if novel[uid]]
     links = co_purchases(
-        train.rename(
-            columns={"user_id": "customer_id", "purchase_date": "t_dat", "product_id": "article_id"}
+        shoppers.rename(
+            columns={
+                "shopper_id": "customer_id",
+                "purchase_date": "t_dat",
+                "product_id": "article_id",
+            }
         ),
         sorted(catalog_ids),
     )
-    popular = PopularityRecommender(customers)
+    popular = PopularityRecommender(shoppers)
     recommenders = {
-        "collaborative": CollaborativeRecommender(customers, popular),
+        "collaborative": CollaborativeRecommender(customers, catalog, shoppers, popular),
         "graph": GraphRecommender(customers, catalog, popular, links),
     }
     result = {
@@ -115,8 +123,11 @@ def evaluate(data_dir: Path, qdrant_path: Path | None = None) -> dict:
             "catalog_products": len(catalog_ids),
             "training_purchases": len(train),
             "holdout_purchases": len(holdout),
+            "training_shopper_purchases": len(shoppers),
+            "training_shoppers": int(shoppers["shopper_id"].nunique()),
             "training_co_purchase_links": len(links),
-            "co_purchase_source": "training prepared purchases only; sampled users only",
+            "crowd_signal_source": "every shopper's catalog purchases before the cutoff; "
+            "co-purchase lift counts only baskets with catalog products",
         },
         "repeat_purchase_limitation": {
             "description": "Training purchases are excluded from recommendations. "
@@ -148,9 +159,6 @@ def evaluate(data_dir: Path, qdrant_path: Path | None = None) -> dict:
                     "Explicit index has no training purchase vectors; index training products"
                 )
             recommenders["content"] = ContentBasedRecommender(customers, catalog, store, popular)
-            recommenders["hybrid"] = hybrid_recommender(
-                recommenders["collaborative"], recommenders["content"]
-            )
             result["content_index"] = {
                 "path": str(qdrant_path.resolve()),
                 "collection": collection,

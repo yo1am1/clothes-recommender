@@ -2,10 +2,11 @@
 
 An example must be a customer whose recommendations can be judged at a glance:
 - a coherent history: 6-30 distinct products, at least 80% of them from one section;
-- personal evidence in every strategy: a similar shopper for collaborative filtering and a
-  purchased product with co-purchased complements for the knowledge graph;
-- a hybrid list that stays in the sections the customer buys from and covers their main
-  product group.
+- personal evidence: ten collaborative recommendations all backed by shoppers who bought
+  them with the customer's purchases (no popularity filler), and a purchased product with
+  co-purchased complements for the knowledge graph;
+- a collaborative list that stays in the sections the customer buys from and covers their
+  main product group.
 
 The checks only read the recommenders' output; nothing is tuned for the examples, and every
 other customer stays available. The Evaluation tab scores all eligible customers instead.
@@ -17,14 +18,12 @@ from dataclasses import dataclass
 
 from clothes_recommender.catalog import CustomerData, ProductCatalog
 from clothes_recommender.domain import Product
-from clothes_recommender.recommenders.base import Recommender
 from clothes_recommender.recommenders.collaborative import CollaborativeRecommender
 from clothes_recommender.recommenders.graph import GraphRecommender
 
 MIN_DISTINCT_PRODUCTS = 6
 MAX_DISTINCT_PRODUCTS = 30
 MIN_SECTION_SHARE = 0.8
-MIN_NEIGHBOUR_SIMILARITY = 0.1
 CHECKED_RECOMMENDATIONS = 10
 
 
@@ -50,7 +49,6 @@ def select_demo_customers(
     catalog: ProductCatalog,
     graph: GraphRecommender,
     collaborative: CollaborativeRecommender,
-    hybrid: Recommender,
     limit: int = 10,
 ) -> list[DemoCustomer]:
     """Up to `limit` examples, round-robin over sections so each audience is represented."""
@@ -77,7 +75,7 @@ def select_demo_customers(
             )
             for candidate in queue:
                 by_section[section].remove(candidate)
-                example = _check(candidate, graph, collaborative, hybrid, catalog)
+                example = _check(candidate, graph, collaborative, catalog)
                 if example is not None:
                     selected.append(example)
                     used_groups[section].add(candidate.main_group)
@@ -115,21 +113,18 @@ def _check(
     candidate: _Candidate,
     graph: GraphRecommender,
     collaborative: CollaborativeRecommender,
-    hybrid: Recommender,
     catalog: ProductCatalog,
 ) -> DemoCustomer | None:
-    neighbours = collaborative.similar_users(candidate.user_id, top_k=1)
-    if not neighbours or neighbours[0].similarity < MIN_NEIGHBOUR_SIMILARITY:
-        return None
+    scored = collaborative.recommend(candidate.user_id, CHECKED_RECOMMENDATIONS)
+    if len(scored) < CHECKED_RECOMMENDATIONS or any(item.score <= 0 for item in scored):
+        return None  # popularity filler: too little co-purchase evidence
     focus = next(
         (p for p in candidate.history if graph.related(p.product_id, "complement", top_k=1)),
         None,
     )
     if focus is None:
         return None
-    recommended = catalog.get_many(
-        item.product_id for item in hybrid.recommend(candidate.user_id, CHECKED_RECOMMENDATIONS)
-    )
+    recommended = catalog.get_many(item.product_id for item in scored)
     sections = {p.section for p in candidate.history}
     if (
         len(recommended) < CHECKED_RECOMMENDATIONS
@@ -144,8 +139,7 @@ def _check(
         label=f"{candidate.section}: {', '.join(types)}",
         description=(
             f"{candidate.records} purchases of {len(candidate.history)} products, mostly "
-            f"{candidate.section}. Most similar shopper: {neighbours[0].similarity:.2f} "
-            f"cosine similarity. {focus.name} has co-purchased complements to explore."
+            f"{candidate.section}. {focus.name} has co-purchased complements to explore."
         ),
         focus_product_id=focus.product_id,
     )

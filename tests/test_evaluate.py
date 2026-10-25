@@ -164,7 +164,7 @@ def test_explicit_compatible_index_enables_content(prepared_evaluation, sample_p
     store.upsert(sample_products, np.tile([1.0, 0.0, 0.0], (len(sample_products), 1)))
     store.close()
     result = evaluate.evaluate(data_dir, index)
-    assert {"content", "hybrid"} <= set(result["results"])
+    assert "content" in result["results"]
     assert result["content_index"]["indexed_products"] == 6
     # A second open also verifies that evaluation released the local index lock.
     assert evaluate.evaluate(data_dir, index) == result
@@ -184,3 +184,19 @@ def test_split_excludes_cutoff_day_from_training():
     assert holdout["product_id"].tolist() == [2, 3]
     assert (train["purchase_date"] < cutoff).all()
     assert (holdout["purchase_date"] >= cutoff).all()
+
+
+def test_crowd_signals_use_every_shopper_but_only_before_the_cutoff(prepared_evaluation):
+    data_dir, seen = prepared_evaluation
+    # Two unsampled shoppers buy 1 and 4 together before the cutoff (a link needs two
+    # baskets); two more buy 2 and 4 together in the holdout week, which must stay unseen.
+    crowd = [(s, p, "2020-01-01") for s in (100, 101) for p in (1, 4)]
+    crowd += [(s, p, "2020-01-08") for s in (102, 103) for p in (2, 4)]
+    pd.DataFrame(crowd, columns=["shopper_id", "product_id", "purchase_date"]).to_parquet(
+        data_dir / "shopper_purchases.parquet"
+    )
+    result = evaluate.evaluate(data_dir)
+
+    assert result["sample_scope"]["training_shopper_purchases"] == 4
+    assert result["sample_scope"]["training_shoppers"] == 2
+    assert seen["links"][["product_id", "other_id"]].values.tolist() == [[1, 4]]

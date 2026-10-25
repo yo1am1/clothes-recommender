@@ -69,7 +69,7 @@ def store(catalog):
 
 @pytest.fixture
 def popular(customers) -> PopularityRecommender:
-    return PopularityRecommender(customers)
+    return PopularityRecommender(customers.purchases)
 
 
 @pytest.fixture
@@ -154,7 +154,9 @@ def interest_recommender(make_customers):
     store.ensure_collection(dimension=4)
     vectors = np.stack([v / np.linalg.norm(v) for _, _, v in INTEREST_PRODUCTS.values()])
     store.upsert(catalog.get_many(INTEREST_PRODUCTS), vectors.astype(np.float32))
-    yield ContentBasedRecommender(customers, catalog, store, PopularityRecommender(customers))
+    yield ContentBasedRecommender(
+        customers, catalog, store, PopularityRecommender(customers.purchases)
+    )
     client.close()
 
 

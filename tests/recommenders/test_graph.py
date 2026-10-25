@@ -35,7 +35,7 @@ def make_graph(make_customers):
         return GraphRecommender(
             customers,
             catalog,
-            PopularityRecommender(customers),
+            PopularityRecommender(customers.purchases),
             pd.DataFrame(edges, columns=["product_id", "other_id", "count", "lift"]),
         )
 
@@ -424,7 +424,7 @@ def test_nonempty_co_purchase_table_requires_expected_columns(make_customers) ->
     catalog = ProductCatalog(pd.DataFrame([product(1)]))
     with pytest.raises(ValueError, match="Co-purchases must contain"):
         GraphRecommender(
-            customers, catalog, PopularityRecommender(customers), pd.DataFrame({"x": [1]})
+            customers, catalog, PopularityRecommender(customers.purchases), pd.DataFrame({"x": [1]})
         )
 
 

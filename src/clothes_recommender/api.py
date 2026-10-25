@@ -22,7 +22,6 @@ from clothes_recommender.config import get_settings
 from clothes_recommender.demo import DemoCustomer
 from clothes_recommender.domain import Product, ProductFilter, ScoredProduct, User
 from clothes_recommender.recommenders.base import Recommender, UnknownUserError
-from clothes_recommender.recommenders.collaborative import SimilarUser
 from clothes_recommender.services import Services, build_services
 from clothes_recommender.vector_store import IndexNotBuiltError
 
@@ -256,30 +255,20 @@ def create_app(services: Services | None = None) -> FastAPI:
     def recommend(
         user_id: int,
         services: ServicesDep,
-        strategy: Literal["content", "collaborative", "graph", "hybrid"] = "content",
+        strategy: Literal["content", "collaborative", "graph"] = "content",
         top_k: TopK = 10,
     ) -> list[ProductHit]:
-        if strategy == "hybrid":
-            fused = services.hybrid.explain(user_id, top_k)
-            hits = _to_hits(services, [ScoredProduct(f.product_id, f.score) for f in fused])
-            reasons = {f.product_id: f.reasons() for f in fused}
-            for hit in hits:
-                hit.reasons = reasons[hit.product.product_id]
-            return hits
         recommender: Recommender = {
             "content": services.content_based,
             "collaborative": services.collaborative,
             "graph": services.graph,
         }[strategy]
         hits = _to_hits(services, recommender.recommend(user_id, top_k))
-        if strategy == "graph":
+        explainer = {"graph": services.graph, "collaborative": services.collaborative}.get(strategy)
+        if explainer is not None:
             for hit in hits:
-                hit.reasons = services.graph.reasons(user_id, hit.product.product_id)
+                hit.reasons = explainer.reasons(user_id, hit.product.product_id)
         return hits
-
-    @app.get("/users/{user_id}/similar")
-    def similar_users(user_id: int, services: ServicesDep, top_k: TopK = 5) -> list[SimilarUser]:
-        return services.collaborative.similar_users(user_id, top_k)
 
     @app.get("/evaluation")
     def evaluation(services: ServicesDep) -> dict:

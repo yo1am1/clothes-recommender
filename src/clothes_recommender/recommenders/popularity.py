@@ -4,30 +4,31 @@ from collections.abc import Collection
 from datetime import timedelta
 from itertools import islice
 
-from clothes_recommender.catalog import CustomerData
+import pandas as pd
+
 from clothes_recommender.domain import ScoredProduct
 
-# Fashion demand moves fast: what sold in the last two weeks predicts next week's sales far
-# better than all-time totals (it was the strongest simple baseline in the H&M competition).
-POPULARITY_WINDOW_DAYS = 14
+# Fashion demand moves fast. On three validation weeks of the H&M sample, the last 7 days
+# of sales predicted the next week better than 5 or 14 days.
+POPULARITY_WINDOW_DAYS = 7
 
 
 class PopularityRecommender:
     """Ranks products by how often they were bought in the most recent window of the data.
 
-    The window ends at the latest purchase in the data, not today, so the ranking is
-    reproducible for a fixed dataset.
+    Pass every shopper's purchases when available: counts from a few thousand sampled
+    customers are too sparse to rank 14,000 products. The window ends at the latest
+    purchase in the data, not today, so the ranking is reproducible for a fixed dataset.
     """
 
-    def __init__(self, customers: CustomerData) -> None:
-        purchases = customers.purchases
+    def __init__(self, purchases: pd.DataFrame) -> None:
+        """`purchases` needs product_id and purchase_date columns."""
         if purchases.empty:
             self._ranking: list[ScoredProduct] = []
             return
-        window_start = purchases["purchase_date"].max() - timedelta(days=POPULARITY_WINDOW_DAYS)
-        counts = purchases.loc[
-            purchases["purchase_date"] > window_start, "product_id"
-        ].value_counts()
+        dates = pd.to_datetime(purchases["purchase_date"])
+        window_start = dates.max() - timedelta(days=POPULARITY_WINDOW_DAYS)
+        counts = purchases.loc[dates > window_start, "product_id"].value_counts()
         scored = [ScoredProduct(int(pid), float(count)) for pid, count in counts.items()]
         self._ranking = sorted(scored, key=lambda s: (-s.score, s.product_id))
 

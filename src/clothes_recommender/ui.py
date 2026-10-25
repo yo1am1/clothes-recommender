@@ -26,9 +26,8 @@ EXAMPLE_QUERIES = [
 STRATEGY_NAMES = {
     "popularity": "Popularity (recent best-sellers)",
     "content": "Content-based (CLIP taste vector)",
-    "collaborative": "Collaborative (similar shoppers)",
+    "collaborative": "Collaborative (shoppers who bought the same items)",
     "graph": "Knowledge graph (purchase connections)",
-    "hybrid": "Hybrid (collaborative + content-based)",
 }
 
 
@@ -79,9 +78,8 @@ def query_photo(photo_id: int) -> bytes | None:
 
 def recommendation_reason(reasons: list[str]) -> str | None:
     """Summarize the strongest supplied evidence; keep raw evidence in the expander."""
-    if reasons and all(reason.startswith("Ranked #") for reason in reasons):
-        # Hybrid hits: which component lists the product, and how high.
-        return " · ".join(reason.removesuffix(".") for reason in reasons) + "."
+    if reasons and (" who bought " in reasons[0] or reasons[0].startswith("Popular in")):
+        return reasons[0]  # collaborative: the purchase that points here most strongly
     for reason in reasons:
         if reason.startswith("Bought together with"):
             return re.sub(r"\s*\(product \d+\)|\s*\(lift [^)]+\)", "", reason)
@@ -205,7 +203,7 @@ def recommendations_tab() -> None:
         user_id = example["user_id"]
         strategy = st.radio(
             "Strategy",
-            ["graph", "content", "collaborative", "hybrid"],
+            ["collaborative", "graph", "content"],
             format_func=STRATEGY_NAMES.get,
         )
     profile = call_api("GET", f"/users/{user_id}")
@@ -232,13 +230,6 @@ def recommendations_tab() -> None:
                         width="stretch",
                     )
 
-    if strategy == "collaborative":
-        similar = call_api("GET", f"/users/{user_id}/similar")
-        if similar:
-            st.markdown(
-                "**Most similar shoppers:** "
-                + ", ".join(f"#{s['user_id']} ({s['similarity']:.2f})" for s in similar)
-            )
     st.subheader("Recommended for this user")
     with st.spinner("Finding recommendations…"):
         show_hits(
