@@ -1,22 +1,38 @@
-# Session handoff — 2026-10-21
+# Session handoff — 2026-10-25
 
-Working tree contains the current work; nothing committed or pushed.
+The image pause from 2026-10-21 is over: product photos, text and image search, visually
+similar products and content-based recommendations work end to end on the default sample.
 
-## Pause checkpoint
+## Data used for validation
 
-User requested image features be deferred. Both image-search tabs now show coming-soon messages with no search controls. Product cards show "Product images coming soon." and do not fetch or render photos, including cards in chat and graph results. Search API endpoints and downloaded assets remain available for future work. Do not re-enable images or image-search UI until requested.
+Prepared without Kaggle from the Hugging Face mirror's CSVs (`prepare_data --archive
+<dir with the CSVs>`), defaults otherwise: 12 weeks, 5,000 customers, seed 42. Result:
+14,300 products, 59,040 purchases, 757,633 co-purchase links. `fetch_photos --workers 8`
+saved 14,280 photos (20 are missing in the mirror) in about 25 minutes, 368 MB after
+downsizing. `build_index` embedded all 14,280 in about 5 minutes at 50 img/s on 4 cores.
+`fetch_query_photos` saved 12 example photos of articles outside the sample.
 
-Validation for this checkpoint: 31 UI tests passed and Ruff passed. Live browser checks passed; screenshots saved as docs/screenshots/recommendations-coming-soon.png, text-search-coming-soon.png, and image-search-coming-soon.png. Full-suite result below predates this small display change. Implementation is paused; photo indexing and end-to-end retrieval remain future work.
+## Added in this session
 
-Preview: http://127.0.0.1:18501 (UI), http://127.0.0.1:18010 (API).
-Data: /tmp/clothy-real-smoke-oggtyvdj. All 200 sampled customers retained; default selector shows ten curated examples.
+- `prepare_data` reads an unzipped directory; `fetch_photos` downsizes like extraction does.
+- API: `/products/{id}/similar`, `/sections` plus a section filter on text search,
+  `/search/examples`, `/evaluation`, and `strategy=hybrid` with per-component rank reasons.
+- `HybridRecommender`: reciprocal rank fusion (k=60) of collaborative and content-based.
+- UI: photos on cards, text search with examples and section filter, image search with
+  example photos, "Looks similar" in the graph explorer, and an Evaluation tab.
+- `evaluate --output` saves the JSON the Evaluation tab reads; the hybrid is evaluated
+  whenever an image index is given.
+- Screenshots re-captured from the H&M sample; legacy and coming-soon captures removed.
 
-Implemented: graph recommendations and evidence, relevant higher-price alternatives, bounded co-purchase weights (raw lift remains in evidence), ten curated examples, confirmation dialog for browsing all customers, clearer three-column cards and concise reasons, graph contrast fixes, evaluation script, taxonomy enrichment and photo downloader.
+## Evaluation (seven-day holdout, 819 customers)
 
-OmniRoute chat is now enabled in the running preview API using normal .env loading. GET /health reports chat_enabled=true; POST /chat returned HTTP 200 with a live greeting through OmniRoute. Restart command from the repo: DATA_DIR=/tmp/clothy-real-smoke-oggtyvdj QDRANT_PATH=/tmp/clothy-real-smoke-oggtyvdj/qdrant HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 .venv/bin/uvicorn clothes_recommender.api:create_app --factory --host 127.0.0.1 --port 18010. Do not expose credentials. Preview Qdrant index is still empty; product retrieval requires photo indexing.
+New-item MAP@12: hybrid 0.0103, collaborative 0.0088, graph 0.0077, popularity 0.0050,
+content-based 0.0046. The hybrid pairing was chosen on this holdout (see README).
 
-Photo downloader uses verified exact article IDs from the pinned public H&M mirror. Downloads may still be running; inspect /tmp/clothy-priority-photos.log and data-directory images before restarting. UI image cache now expires after 30 seconds. Finish downloading photos, build the image index, then verify product-search chat and screenshots of the latest cards. Existing screenshots in docs/screenshots verify graph contrast, not the newest card layout.
+## Open items
 
-Final validation: 276 tests passed, one deselected; Ruff passed. Docker build passed earlier but was not rebuilt after the latest scoring/card/photo changes.
-
-Existing Herdr workers clothy-data, clothy-taxonomy, clothy-clip were interrupted during wrap-up. Their recent output contains implementation notes. Preserve all pre-existing changes.
+- The shopping assistant was not exercised: no LLM is configured in this environment, so
+  there is no current chat screenshot. Configure `.env` and run `take_screenshots` without
+  `--skip-chat`.
+- The Docker image was not rebuilt after these changes.
+- A second sample or holdout week would show whether the hybrid's lead is stable.
