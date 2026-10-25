@@ -23,11 +23,22 @@ downsizing. `build_index` embedded all 14,280 in about 5 minutes at 50 img/s on 
 - `evaluate --output` saves the JSON the Evaluation tab reads; the hybrid is evaluated
   whenever an image index is given.
 - Screenshots re-captured from the H&M sample; legacy and coming-soon captures removed.
+- MIT licence; history rewritten without commit trailers and without the old Amazon data.
 
 ## Evaluation (seven-day holdout, 819 customers)
 
-New-item MAP@12: hybrid 0.0103, collaborative 0.0088, graph 0.0077, popularity 0.0050,
-content-based 0.0046. The hybrid pairing was chosen on this holdout (see README).
+New-item MAP@12: hybrid 0.0108, collaborative 0.0088, graph 0.0077, content-based 0.0054,
+popularity 0.0050. The hybrid pairing was chosen on this holdout (see README).
+
+Content-based now uses one taste vector per product group, searched within the sections
+that group was bought from. The single averaged vector had turned a dress buyer's history
+into leggings and trousers, including menswear.
+
+## Demo examples
+
+Ten customers, two per section, chosen by the documented criteria in `demo.py` (coherent
+history, a similar shopper, co-purchase complements, a hybrid list within their sections).
+Choosing them takes about 12 s and now happens at API startup.
 
 ## Open items
 

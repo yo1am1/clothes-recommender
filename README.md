@@ -8,7 +8,7 @@ search, classic and graph recommendations, and an LLM shopping assistant:
 | Text-to-image search | The query is embedded with CLIP's text encoder and compared with the CLIP image embeddings of every product in Qdrant. |
 | Image search | An uploaded photo is embedded with CLIP's image encoder and compared the same way. Example photos show H&M garments outside the sampled catalog, so every match is a different product. |
 | Visually similar products | A product's own image embedding is the query (CLIP item-to-item), shown next to the graph's co-purchase complements and alternatives. |
-| Content-based recommendations | Each user has a *taste vector*, the recency-weighted mean of the embeddings of the products they bought. It is searched within the broad product groups the user buys most, excluding past purchases. |
+| Content-based recommendations | One *taste vector* per interest: for each of the three product groups a user buys most (e.g. dresses, leggings), the recency-weighted mean of those purchases' image embeddings, searched within that group and the sections it was bought from. Groups get slots by weight, so a dress buyer who also buys leggings sees both. |
 | Collaborative recommendations | User-based collaborative filtering. Users are compared by cosine similarity on the sparse user × product purchase matrix, and each product is scored by the similarity-weighted votes of the nearest neighbours. |
 | Hybrid recommendations | Reciprocal rank fusion of the collaborative and content-based lists: who bought what, plus what it looks like. Each result names its rank in both lists. |
 | Graph recommendations | Past purchases seed an in-memory graph of co-purchases, Shopify categories and attributes. Shared attributes are weighted by inverse degree; each result includes its evidence. |
@@ -19,16 +19,19 @@ search, classic and graph recommendations, and an LLM shopping assistant:
 Users without usable purchase history get the products bought most in the last two weeks of
 data, which also fill collaborative lists that come up short.
 
-The demo opens with up to ten customer examples selected from the loaded data for useful
-purchase connections, specific product categories and varied shopping histories. Each has
-a descriptive label and a suggested product to explore. “Browse all customers” keeps every
-other customer accessible; no users are removed. These examples guide exploration and do
-not determine the offline evaluation cohort.
+The demo opens with ten real customers whose recommendations can be judged at a glance,
+two per section (Ladieswear, Divided, Menswear, Sport, Baby/Children). Each has a coherent
+history (6-30 products, at least 80% from one section), a similar shopper for collaborative
+filtering, a purchase with co-purchased complements for the graph, and a hybrid list that
+stays in their sections and covers their main product group. The checks only read the
+recommenders' output; nothing is tuned for these customers. "Browse all customers" keeps
+everyone else accessible, and the Evaluation tab scores all eligible customers.
 
 ## Screenshots
 
 Captured on the default sample (5,000 customers, 14,300 products) with
-`scripts/take_screenshots.py --example 1`, a customer who buys dresses and leggings.
+`scripts/take_screenshots.py --example 5`: customer #1585, who mostly buys dresses, plus
+shirts, trousers and boots.
 
 ### Recommendations: hybrid
 
@@ -44,8 +47,8 @@ The same customer under the [knowledge graph](docs/screenshots/recommendations-g
 ### Evaluation
 
 Trained on purchases before 2020-09-16, scored on what 819 customers bought in the
-following seven days. Content-based recommendations alone score below best-sellers, but
-fused with collaborative filtering they lift it from 1.75x to 2.06x the popularity baseline.
+following seven days. Fusing what similar shoppers bought with what the customer's
+purchases look like beats either alone: 2.15x the popularity baseline.
 
 ![Offline evaluation](docs/screenshots/evaluation.jpg)
 
@@ -262,16 +265,20 @@ the holdout week, 794 of them buying something new):
 
 | Strategy | MAP@12, new items | vs popularity | MAP@12, all purchases | Catalog coverage |
 |---|---|---|---|---|
-| Hybrid (collaborative + content-based) | 0.0103 | 2.06x | 0.0100 | 29.4% |
+| Hybrid (collaborative + content-based) | 0.0108 | 2.15x | 0.0104 | 32.6% |
 | Collaborative | 0.0088 | 1.75x | 0.0085 | 29.2% |
 | Knowledge graph | 0.0077 | 1.53x | 0.0074 | 26.8% |
+| Content-based | 0.0054 | 1.08x | 0.0052 | 32.4% |
 | Popularity | 0.0050 | 1.00x | 0.0049 | 0.1% |
-| Content-based | 0.0046 | 0.91x | 0.0044 | 25.5% |
 
-The hybrid pairing was chosen on this same holdout: collaborative + content-based scored
-better than collaborative + graph (0.0094) or all three (0.0096). RRF's constant stays at the
-standard 60 rather than the slightly better 10 (0.0110). With one sample and one holdout
-week, treat differences of a few percent as noise.
+Per-interest taste vectors replaced a single vector over all purchases, which averaged
+different garments into one look: content-based went from 0.0046 to 0.0054, the hybrid from
+0.0103 to 0.0108, and recommendations from a section the customer never bought from fell
+from 10% to none. The hybrid pairing was chosen on this same holdout, with the earlier
+content recommender: collaborative + content-based scored better than collaborative + graph
+(0.0094) or all three (0.0096). RRF's constant stays at the standard 60 rather than the
+slightly better 10 (0.0110). With one sample and one holdout week, treat differences of a
+few percent as noise.
 
 The last seven calendar days are held out. Popularity, collaborative filtering and
 co-purchase links are rebuilt using training purchases only; the evaluator never reuses
@@ -295,5 +302,5 @@ uv run pytest -m integration        # tests that download the real CLIP model
 uv run ruff check . && uv run ruff format --check .
 
 # Re-capture README screenshots (API + UI running; uses the local Google Chrome)
-uv run python -m scripts.take_screenshots --example 1 --skip-chat
+uv run python -m scripts.take_screenshots --example 5 --skip-chat
 ```
