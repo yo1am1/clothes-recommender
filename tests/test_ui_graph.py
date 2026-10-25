@@ -561,6 +561,10 @@ def test_profile_history_is_limited_and_does_not_fetch_purchase_photos(mocked_ap
             ["Popularity fallback from recent purchases; no graph evidence from history."],
             "Popular in recent purchases; no personal graph connections were found.",
         ),
+        (
+            ["Ranked #2 by collaborative.", "Ranked #7 by content-based."],
+            "Ranked #2 by collaborative · Ranked #7 by content-based.",
+        ),
         ([], None),
     ],
 )

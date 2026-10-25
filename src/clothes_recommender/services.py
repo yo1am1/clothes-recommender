@@ -16,6 +16,7 @@ from clothes_recommender.embeddings import ClipEncoder
 from clothes_recommender.recommenders.collaborative import CollaborativeRecommender
 from clothes_recommender.recommenders.content_based import ContentBasedRecommender
 from clothes_recommender.recommenders.graph import GraphRecommender
+from clothes_recommender.recommenders.hybrid import HybridRecommender
 from clothes_recommender.recommenders.popularity import PopularityRecommender
 from clothes_recommender.search import ProductSearch
 from clothes_recommender.vector_store import ProductVectorStore
@@ -32,6 +33,7 @@ class Services:
     content_based: ContentBasedRecommender
     collaborative: CollaborativeRecommender
     graph: GraphRecommender
+    hybrid: HybridRecommender
     images_dir: Path
     # None when no LLM is configured: every other feature still works without an API key.
     assistant: ShoppingAssistant | None
@@ -42,6 +44,16 @@ class Services:
     @cached_property
     def demo_customers(self) -> list[DemoCustomer]:
         return select_demo_customers(self.customers, self.catalog, self.graph)
+
+
+def hybrid_recommender(
+    collaborative: CollaborativeRecommender, content_based: ContentBasedRecommender
+) -> HybridRecommender:
+    """Who bought what (collaborative) fused with what it looks like (content-based).
+
+    The offline evaluation found this pair complementary; adding the graph did not help.
+    """
+    return HybridRecommender({"collaborative": collaborative, "content-based": content_based})
 
 
 def build_services(settings: Settings) -> Services:
@@ -66,14 +78,17 @@ def build_services(settings: Settings) -> Services:
     else:
         logger.warning("LLM_MODEL is not set: the shopping assistant is disabled.")
 
+    content_based = ContentBasedRecommender(customers, catalog, store, popularity)
+    collaborative = CollaborativeRecommender(customers, popularity)
     return Services(
         catalog=catalog,
         customers=customers,
         store=store,
         search=search,
-        content_based=ContentBasedRecommender(customers, catalog, store, popularity),
-        collaborative=CollaborativeRecommender(customers, popularity),
+        content_based=content_based,
+        collaborative=collaborative,
         graph=GraphRecommender(customers, catalog, popularity, links),
+        hybrid=hybrid_recommender(collaborative, content_based),
         images_dir=settings.images_dir,
         assistant=assistant,
         query_photos_dir=settings.query_photos_dir,

@@ -253,9 +253,16 @@ def create_app(services: Services | None = None) -> FastAPI:
     def recommend(
         user_id: int,
         services: ServicesDep,
-        strategy: Literal["content", "collaborative", "graph"] = "content",
+        strategy: Literal["content", "collaborative", "graph", "hybrid"] = "content",
         top_k: TopK = 10,
     ) -> list[ProductHit]:
+        if strategy == "hybrid":
+            fused = services.hybrid.explain(user_id, top_k)
+            hits = _to_hits(services, [ScoredProduct(f.product_id, f.score) for f in fused])
+            reasons = {f.product_id: f.reasons() for f in fused}
+            for hit in hits:
+                hit.reasons = reasons[hit.product.product_id]
+            return hits
         recommender: Recommender = {
             "content": services.content_based,
             "collaborative": services.collaborative,

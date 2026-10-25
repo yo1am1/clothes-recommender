@@ -164,7 +164,7 @@ def test_explicit_compatible_index_enables_content(prepared_evaluation, sample_p
     store.upsert(sample_products, np.tile([1.0, 0.0, 0.0], (len(sample_products), 1)))
     store.close()
     result = evaluate.evaluate(data_dir, index)
-    assert "content" in result["results"]
+    assert {"content", "hybrid"} <= set(result["results"])
     assert result["content_index"]["indexed_products"] == 6
     # A second open also verifies that evaluation released the local index lock.
     assert evaluate.evaluate(data_dir, index) == result

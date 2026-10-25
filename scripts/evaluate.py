@@ -19,6 +19,7 @@ from clothes_recommender.config import get_settings
 from clothes_recommender.recommenders.collaborative import CollaborativeRecommender
 from clothes_recommender.recommenders.content_based import ContentBasedRecommender
 from clothes_recommender.recommenders.popularity import PopularityRecommender
+from clothes_recommender.services import hybrid_recommender
 from clothes_recommender.vector_store import ProductVectorStore
 from scripts.prepare_data import co_purchases
 
@@ -147,6 +148,9 @@ def evaluate(data_dir: Path, qdrant_path: Path | None = None) -> dict:
                     "Explicit index has no training purchase vectors; index training products"
                 )
             recommenders["content"] = ContentBasedRecommender(customers, catalog, store, popular)
+            recommenders["hybrid"] = hybrid_recommender(
+                recommenders["collaborative"], recommenders["content"]
+            )
             result["content_index"] = {
                 "path": str(qdrant_path.resolve()),
                 "collection": collection,

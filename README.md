@@ -149,25 +149,50 @@ scripts/take_screenshots.py # Re-capture the README screenshots with Playwright
 
 Requires [uv](https://docs.astral.sh/uv/) and Python 3.13.
 
-The dataset needs a free Kaggle account with the
-[competition rules](https://www.kaggle.com/competitions/h-and-m-personalized-fashion-recommendations/rules)
-accepted and an API token in `~/.kaggle/kaggle.json`. The download is about 30 GB.
-
 ```bash
 uv sync --all-extras
 cp .env.example .env                                   # optional: configure an LLM for the chat tab
+```
 
+Get the H&M data in one of two ways. The Kaggle archive needs a free account with the
+[competition rules](https://www.kaggle.com/competitions/h-and-m-personalized-fashion-recommendations/rules)
+accepted and an API token in `~/.kaggle/kaggle.json`; the download is about 30 GB.
+
+```bash
 uvx kaggle competitions download -c h-and-m-personalized-fashion-recommendations -p data/raw
-uv run python -m scripts.prepare_data
+uv run python -m scripts.prepare_data                  # photos are extracted from the zip
+```
 
-uv run python -m scripts.build_index --limit 3000      # demo index: ~2.5 min on a 20-core CPU
+Without a Kaggle account, use the CSVs (3.7 GB) of the
+[Hugging Face mirror](https://huggingface.co/datasets/einrafh/hnm-fashion-recommendations-data)
+and fetch only the photos of the sampled products (about 35 minutes for the 14,300 products
+of the default sample, 360 MB after downsizing):
+
+```bash
+M=https://huggingface.co/datasets/einrafh/hnm-fashion-recommendations-data/resolve/acde210b0090be673abdba5f989c48925c856f78/data/raw
+mkdir -p data/raw && for f in articles customers transactions_train; do curl -L -o data/raw/$f.csv $M/$f.csv; done
+uv run python -m scripts.prepare_data --archive data/raw
+uv run python -m scripts.fetch_photos --data-dir data --workers 8
+```
+
+Then build the image index, fetch a few example photos for image search, and start the app:
+
+```bash
+uv run python -m scripts.build_index                   # all products: ~5 min at 50 img/s on 4 CPU cores
+uv run python -m scripts.fetch_query_photos --articles data/raw/articles.csv
+uv run python -m scripts.evaluate --qdrant-path .qdrant --output data/evaluation.json
 uv run uvicorn clothes_recommender.api:create_app --factory --reload   # http://localhost:8000/docs
 uv run streamlit run src/clothes_recommender/ui.py     # http://localhost:8501
 ```
 
-Without `--limit` the whole catalog is indexed. Qdrant runs embedded (stored in `.qdrant/`)
-unless `QDRANT_URL` is set, so no external service is needed. Embedded Qdrant allows one
-process at a time: build the index before starting the API (or point both at a Qdrant server).
+The example photos show H&M garments that are not in the sampled catalog, so image search
+always has to find a different product that looks alike. `scripts.evaluate` writes the
+results that the Evaluation tab shows; without it, that tab explains how to create them.
+
+`build_index --limit N` indexes a smaller subset spread across sections. Qdrant runs
+embedded (stored in `.qdrant/`) unless `QDRANT_URL` is set, so no external service is needed.
+Embedded Qdrant allows one process at a time: build the index and run the evaluation before
+starting the API (or point everything at a Qdrant server).
 
 ### Docker
 
@@ -198,13 +223,17 @@ Any OpenAI-compatible gateway (OmniRoute, OpenRouter, LiteLLM, Ollama, vLLM) wor
 | GET | `/products/{id}` | Product details |
 | GET | `/products/{id}/graph` | Bounded product neighborhood: nodes and edges |
 | GET | `/products/{id}/related?kind=complement\|alternative` | Co-purchased complements or higher-priced alternatives |
-| POST | `/search/text` | `{"query": "red floral dress", "top_k": 10}` |
+| GET | `/products/{id}/similar` | Products whose photos look most alike (CLIP item-to-item) |
+| GET | `/sections` | Catalog sections, for filtering text search |
+| POST | `/search/text` | `{"query": "red floral dress", "top_k": 10, "section": "Ladieswear"}` (section optional) |
 | POST | `/search/image` | Multipart image upload |
+| GET | `/search/examples`, `/search/examples/{id}/image` | Example query photos of garments outside the catalog |
 | GET | `/users`, `/users/{id}` | User ids; profile with purchase history |
 | GET | `/demo/customers` | Up to ten descriptive customer examples and starting products |
 | GET | `/users/{id}/recommendations?strategy=content\|collaborative\|graph` | Personalised recommendations; graph hits include reasons |
 | GET | `/users/{id}/similar` | Most similar shoppers |
 | POST | `/chat` | `{"message": "...", "history": [...]}` |
+| GET | `/evaluation` | Offline evaluation results saved by `scripts.evaluate --output` |
 
 Interactive docs at `http://localhost:8000/docs`.
 

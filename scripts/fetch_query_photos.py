@@ -21,15 +21,14 @@ import pandas as pd
 from clothes_recommender.config import get_settings
 from scripts.fetch_photos import atomic_write, download_photo
 
-# Product groups whose photos show one recognisable garment; accessories and
-# "Unknown" are mostly flat-lay close-ups that make poor queries.
+# Product groups whose photos show one recognisable garment. Accessories and
+# "Unknown" are mostly flat-lay close-ups, and underwear makes an awkward demo default.
 QUERY_GROUPS = (
     "Garment Upper body",
     "Garment Lower body",
     "Garment Full body",
     "Shoes",
     "Swimwear",
-    "Underwear",
     "Nightwear",
 )
 

@@ -28,6 +28,7 @@ STRATEGY_NAMES = {
     "content": "Content-based (CLIP taste vector)",
     "collaborative": "Collaborative (similar shoppers)",
     "graph": "Knowledge graph (purchase connections)",
+    "hybrid": "Hybrid (collaborative + content-based)",
 }
 
 
@@ -78,6 +79,9 @@ def query_photo(photo_id: int) -> bytes | None:
 
 def recommendation_reason(reasons: list[str]) -> str | None:
     """Summarize the strongest supplied evidence; keep raw evidence in the expander."""
+    if reasons and all(reason.startswith("Ranked #") for reason in reasons):
+        # Hybrid hits: which component lists the product, and how high.
+        return " · ".join(reason.removesuffix(".") for reason in reasons) + "."
     for reason in reasons:
         if reason.startswith("Bought together with"):
             return re.sub(r"\s*\(product \d+\)|\s*\(lift [^)]+\)", "", reason)
@@ -201,12 +205,8 @@ def recommendations_tab() -> None:
         user_id = example["user_id"]
         strategy = st.radio(
             "Strategy",
-            ["graph", "content", "collaborative"],
-            format_func={
-                "content": "Content-based (CLIP taste vector)",
-                "collaborative": "Collaborative (similar shoppers)",
-                "graph": "Knowledge graph (purchase connections)",
-            }.get,
+            ["graph", "content", "collaborative", "hybrid"],
+            format_func=STRATEGY_NAMES.get,
         )
     profile = call_api("GET", f"/users/{user_id}")
     with right:

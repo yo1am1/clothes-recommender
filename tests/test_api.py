@@ -18,7 +18,7 @@ from clothes_recommender.recommenders.content_based import ContentBasedRecommend
 from clothes_recommender.recommenders.graph import GraphRecommender
 from clothes_recommender.recommenders.popularity import PopularityRecommender
 from clothes_recommender.search import ProductSearch
-from clothes_recommender.services import Services
+from clothes_recommender.services import Services, hybrid_recommender
 
 
 class EchoAssistant:
@@ -43,13 +43,16 @@ def services(sample_catalog, vector_store, fake_encoder, tmp_path) -> Services:
     Image.new("RGB", (4, 6), "red").save(tmp_path / "3.jpg")
     customers = CustomerData(users, purchases)
     popularity = PopularityRecommender(customers)
+    content_based = ContentBasedRecommender(customers, sample_catalog, vector_store, popularity)
+    collaborative = CollaborativeRecommender(customers, popularity)
     return Services(
         catalog=sample_catalog,
         customers=customers,
         store=vector_store,
         search=ProductSearch(fake_encoder, vector_store),
-        content_based=ContentBasedRecommender(customers, sample_catalog, vector_store, popularity),
-        collaborative=CollaborativeRecommender(customers, popularity),
+        content_based=content_based,
+        collaborative=collaborative,
+        hybrid=hybrid_recommender(collaborative, content_based),
         graph=GraphRecommender(
             customers,
             sample_catalog,
@@ -134,7 +137,7 @@ def test_demo_examples_are_real_and_leave_all_users_available(client) -> None:
     assert client.get("/demo/customers").json() == examples
 
 
-@pytest.mark.parametrize("strategy", ["content", "collaborative", "graph"])
+@pytest.mark.parametrize("strategy", ["content", "collaborative", "graph", "hybrid"])
 def test_recommendations_exclude_purchases(client, strategy) -> None:
     response = client.get("/users/1/recommendations", params={"strategy": strategy, "top_k": 3})
     assert response.status_code == 200
@@ -245,3 +248,17 @@ def test_evaluation_is_served_when_present(services, tmp_path) -> None:
         assert "scripts.evaluate" in missing.json()["detail"]
         path.write_text(json.dumps({"top_k": 12, "results": {}}))
         assert client.get("/evaluation").json() == {"top_k": 12, "results": {}}
+
+
+def test_hybrid_recommendations_explain_component_ranks(client) -> None:
+    hits = client.get("/users/1/recommendations", params={"strategy": "hybrid"}).json()
+    reasons = {hit["product"]["product_id"]: hit["reasons"] for hit in hits}
+    # User 2, the only neighbour, bought product 3, so collaborative ranks it first.
+    assert "Ranked #1 by collaborative." in reasons[3]
+    assert 1 not in reasons  # already bought
+    assert all(
+        reason.startswith("Ranked #")
+        and reason.endswith(("by collaborative.", "by content-based."))
+        for hit_reasons in reasons.values()
+        for reason in hit_reasons
+    )
