@@ -96,23 +96,16 @@ def main() -> None:
         if args.example:
             choose_example(page, args.example)
             wait_for_photos(page, PHOTOS_IN_VIEW)
-        capture(page, args.out, "recommendations-graph")
-
-        page.get_by_text("Content-based (CLIP taste vector)").click()
-        wait_for_rerun(page)
-        wait_for_photos(page, PHOTOS_IN_VIEW)
-        capture(page, args.out, "recommendations-content")
-
-        page.get_by_text("Collaborative (similar shoppers)").click()
-        wait_for_rerun(page)
-        page.get_by_text("Most similar shoppers").wait_for(timeout=RESULT_TIMEOUT_MS)
-        wait_for_photos(page, PHOTOS_IN_VIEW)
         capture(page, args.out, "recommendations-collaborative")
 
-        page.get_by_text("Hybrid (collaborative + content-based)").click()
-        wait_for_rerun(page)
-        wait_for_photos(page, PHOTOS_IN_VIEW)
-        capture(page, args.out, "recommendations-hybrid")
+        for strategy, name in [
+            ("Knowledge graph (purchase connections)", "recommendations-graph"),
+            ("Content-based (CLIP taste vector)", "recommendations-content"),
+        ]:
+            page.get_by_text(strategy).click()
+            wait_for_rerun(page)
+            wait_for_photos(page, PHOTOS_IN_VIEW)
+            capture(page, args.out, name)
 
         open_tab(page, "Knowledge graph")
         if args.example:

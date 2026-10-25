@@ -9,21 +9,20 @@ search, classic and graph recommendations, and an LLM shopping assistant:
 | Image search | An uploaded photo is embedded with CLIP's image encoder and compared the same way. Example photos show H&M garments outside the sampled catalog, so every match is a different product. |
 | Visually similar products | A product's own image embedding is the query (CLIP item-to-item), shown next to the graph's co-purchase complements and alternatives. |
 | Content-based recommendations | One *taste vector* per interest: for each of the three product groups a user buys most (e.g. dresses, leggings), the recency-weighted mean of those purchases' image embeddings, searched within that group and the sections it was bought from. Groups get slots by weight, so a dress buyer who also buys leggings sees both. |
-| Collaborative recommendations | User-based collaborative filtering. Users are compared by cosine similarity on the sparse user × product purchase matrix, and each product is scored by the similarity-weighted votes of the nearest neighbours. |
-| Hybrid recommendations | Reciprocal rank fusion of the collaborative and content-based lists: who bought what, plus what it looks like. Each result names its rank in both lists. |
+| Collaborative recommendations | Item-to-item collaborative filtering over all ~480,000 shoppers in the 12-week window, not just the sample: a product scores by how many shoppers bought it together with the customer's purchases, recent purchases weighted more and best-sellers damped. Each result names the purchase behind it ("163 shoppers who bought Bradley trousers also bought this"). The best strategy offline. |
 | Graph recommendations | Past purchases seed an in-memory graph of co-purchases, Shopify categories and attributes. Shared attributes are weighted by inverse degree; each result includes its evidence. |
 | Knowledge graph | Explore a product's category, attributes and co-purchased neighbors, with complementary products and higher-priced alternatives. |
 | Offline evaluation | Every strategy is trained on purchases before a cutoff and scored on the following week (MAP@12, catalog coverage); the Evaluation tab compares them. |
 | Shopping assistant (RAG) | The LLM turns a message into a structured `SearchIntent`: a visual query plus product type, section (e.g. Menswear), colour and price filters. Qdrant retrieves the matching products, and the answer cites only those products. |
 
-Users without usable purchase history get the products bought most in the last two weeks of
-data, which also fill collaborative lists that come up short.
+Users without usable purchase history get the products all shoppers bought most in the last
+week of data, which also fill lists that come up short.
 
 The demo opens with ten real customers whose recommendations can be judged at a glance,
 two per section (Ladieswear, Divided, Menswear, Sport, Baby/Children). Each has a coherent
-history (6-30 products, at least 80% from one section), a similar shopper for collaborative
-filtering, a purchase with co-purchased complements for the graph, and a hybrid list that
-stays in their sections and covers their main product group. The checks only read the
+history (6-30 products, at least 80% from one section), ten collaborative recommendations
+all backed by co-purchases (no best-seller filler) that stay in their sections and cover
+their main product group, and a purchase with co-purchased complements for the graph. The checks only read the
 recommenders' output; nothing is tuned for these customers. "Browse all customers" keeps
 everyone else accessible, and the Evaluation tab scores all eligible customers.
 
@@ -33,22 +32,21 @@ Captured on the default sample (5,000 customers, 14,300 products) with
 `scripts/take_screenshots.py --example 5`: customer #1585, who mostly buys dresses, plus
 shirts, trousers and boots.
 
-### Recommendations: hybrid
+### Recommendations: collaborative
 
-Collaborative filtering and the CLIP taste vector each rank 50 candidates; reciprocal rank
-fusion promotes products both lists agree on, even when neither ranks them first.
+Dresses, trousers and blouses that hundreds of other shoppers bought together with this
+customer's recent purchases; each card names the purchase behind it.
 
-![Hybrid recommendations](docs/screenshots/recommendations-hybrid.jpg)
+![Collaborative recommendations](docs/screenshots/recommendations-collaborative.jpg)
 
-The same customer under the [knowledge graph](docs/screenshots/recommendations-graph.jpg),
-[content-based](docs/screenshots/recommendations-content.jpg) and
-[collaborative](docs/screenshots/recommendations-collaborative.jpg) strategies.
+The same customer under the [knowledge graph](docs/screenshots/recommendations-graph.jpg)
+and [content-based](docs/screenshots/recommendations-content.jpg) strategies.
 
 ### Evaluation
 
 Trained on purchases before 2020-09-16, scored on what 819 customers bought in the
-following seven days. Fusing what similar shoppers bought with what the customer's
-purchases look like beats either alone: 2.15x the popularity baseline.
+following seven days. Collaborative filtering scores 1.4x last week's best-sellers, which
+are themselves a strong baseline once counted over every shopper.
 
 ![Offline evaluation](docs/screenshots/evaluation.jpg)
 
@@ -86,7 +84,11 @@ dataset from Kaggle: 105k articles with photos and 31.8M real purchases from 201
 with at least five purchases, and extracts the photos of the products they bought.
 It also writes `co_purchases.parquet`: links between catalog products learned from all
 shoppers in that window, including shoppers outside the demo sample. Repeated purchases
-of one item count once per basket; pairs need at least two shared baskets.
+of one item count once per basket; pairs need at least two shared baskets. And it writes
+`shopper_purchases.parquet`: every shopper's purchases of catalog products (3.0M rows from
+about 480,000 shoppers, under anonymous integer ids), which popularity and collaborative
+filtering learn from. The 5,000 sampled customers alone made 2% of those purchases, far
+too few to rank 14,300 products.
 
 The dataset's prices are normalised. Multiplying them by 590 (a convention from the Kaggle
 competition discussion) gives realistic euro price points such as €29.99, so the prices shown
@@ -123,13 +125,12 @@ flowchart LR
     API --> CB[ContentBasedRecommender]
     API --> CF[CollaborativeRecommender]
     API --> G[GraphRecommender]
-    API --> H[HybridRecommender]
-    H --> CF & CB
     API --> A[ShoppingAssistant]
     S --> E[CLIP encoder]
     S --> Q[(Qdrant)]
     CB --> Q
     CB & CF --> P[PopularityRecommender]
+    CF & P --> SP[(All shoppers' purchases)]
     G --> P
     G --> KG[(Co-purchases + Shopify metadata)]
     A --> LLM[[Any LLM provider]]
@@ -145,7 +146,7 @@ src/clothes_recommender/
 ├── embeddings.py      # CLIP encoder (lazy-loaded)
 ├── vector_store.py    # Qdrant wrapper: upsert, filtered search, vector lookup
 ├── search.py          # Text and image search
-├── recommenders/      # content_based, collaborative, graph, hybrid, popularity
+├── recommenders/      # content_based, collaborative, graph, popularity
 ├── chat/              # llm (provider-agnostic), intent, prompts, assistant
 ├── services.py        # Composition root
 ├── api.py             # FastAPI app
@@ -244,8 +245,7 @@ Any OpenAI-compatible gateway (OmniRoute, OpenRouter, LiteLLM, Ollama, vLLM) wor
 | GET | `/search/examples`, `/search/examples/{id}/image` | Example query photos of garments outside the catalog |
 | GET | `/users`, `/users/{id}` | User ids; profile with purchase history |
 | GET | `/demo/customers` | Up to ten descriptive customer examples and starting products |
-| GET | `/users/{id}/recommendations?strategy=content\|collaborative\|graph` | Personalised recommendations; graph hits include reasons |
-| GET | `/users/{id}/similar` | Most similar shoppers |
+| GET | `/users/{id}/recommendations?strategy=collaborative\|graph\|content` | Personalised recommendations; collaborative and graph hits include reasons |
 | POST | `/chat` | `{"message": "...", "history": [...]}` |
 | GET | `/evaluation` | Offline evaluation results saved by `scripts.evaluate --output` |
 
@@ -255,41 +255,60 @@ Interactive docs at `http://localhost:8000/docs`.
 
 ```bash
 uv run python -m scripts.evaluate --data-dir data
-# Content-based and hybrid recommendations need an explicitly chosen matching image index;
+# Content-based recommendations need an explicitly chosen matching image index;
 # --output saves the JSON that GET /evaluation and the Evaluation tab show:
 uv run python -m scripts.evaluate --data-dir data --qdrant-path .qdrant --output data/evaluation.json
 ```
 
-Results on the default sample (5,000 customers, seed 42; 819 customers with purchases in
-the holdout week, 794 of them buying something new):
+The last seven calendar days (2020-09-16 to 09-22) are held out. Popularity, collaborative
+filtering and co-purchase links are rebuilt from every shopper's purchases before that
+week; nothing from the holdout week reaches training. Results on the default sample (5,000
+customers, seed 42; 819 of them bought in the holdout week, 794 something new):
 
 | Strategy | MAP@12, new items | vs popularity | MAP@12, all purchases | Catalog coverage |
 |---|---|---|---|---|
-| Hybrid (collaborative + content-based) | 0.0108 | 2.15x | 0.0104 | 32.6% |
-| Collaborative | 0.0088 | 1.75x | 0.0085 | 29.2% |
-| Knowledge graph | 0.0077 | 1.53x | 0.0074 | 26.8% |
-| Content-based | 0.0054 | 1.08x | 0.0052 | 32.4% |
-| Popularity | 0.0050 | 1.00x | 0.0049 | 0.1% |
+| Collaborative (item-to-item, all shoppers) | 0.0168 | 1.40x | 0.0160 | 24.9% |
+| Popularity (all shoppers, last 7 days) | 0.0119 | 1.00x | 0.0113 | 0.1% |
+| Knowledge graph | 0.0101 | 0.85x | 0.0097 | 18.4% |
+| Content-based | 0.0054 | 0.45x | 0.0052 | 32.4% |
 
-Per-interest taste vectors replaced a single vector over all purchases, which averaged
-different garments into one look: content-based went from 0.0046 to 0.0054, the hybrid from
-0.0103 to 0.0108, and recommendations from a section the customer never bought from fell
-from 10% to none. The hybrid pairing was chosen on this same holdout, with the earlier
-content recommender: collaborative + content-based scored better than collaborative + graph
-(0.0094) or all three (0.0096). RRF's constant stays at the standard 60 rather than the
-slightly better 10 (0.0110). With one sample and one holdout week, treat differences of a
-few percent as noise.
+Recommenders never repeat a past purchase, so "new items" is the fair column. JSON output
+also includes list fill. Users without both training and holdout purchases are excluded.
 
-The last seven calendar days are held out. Popularity, collaborative filtering and
-co-purchase links are rebuilt using training purchases only; the evaluator never reuses
-the full-window links file. JSON output includes MAP@12, catalog coverage and list fill.
-Full-holdout and novel-item scores are separate because current recommenders exclude
-previous purchases. Users without both training and holdout purchases are excluded.
+### Audit: where the signal was lost
 
-The prepared sample and catalog can reflect the full observation window, so these are
-sample-level results, not a population estimate or a competition leaderboard score.
-Evaluation learns links from the prepared shoppers only; production preparation uses all
-shoppers. CLIP image vectors are fixed features, but index provenance is not recorded.
+An audit of the earlier system found the recommenders learning from the 5,000 sampled
+customers only, 2% of the window's purchases. Each fix was measured on the holdout week:
+
+| Change | Before | After |
+|---|---|---|
+| Collaborative: user-based on the sample -> item-to-item on all shoppers | 0.0088 | 0.0168 |
+| Popularity: sample, 14 days -> all shoppers, 7 days | 0.0050 | 0.0119 |
+| Graph evaluation: links from the sample -> all shoppers, as in production | 0.0077 | 0.0101 |
+| Content-based: one averaged taste vector -> one per product group | 0.0046 | 0.0054 |
+
+Settings were chosen on three earlier validation weeks (holdouts starting 08-26, 09-02 and
+09-09) and the table above was measured once afterwards. The chosen collaborative settings
+(popularity damping 0.3, a 7-day half-life on the customer's history) scored best on the
+validation mean; 7 days of popularity beat 5 and 14. Two ideas were tested and dropped:
+
+- **Padding photos to a square before CLIP**, so its center crop keeps a dress's neckline
+  and hem, made content-based worse (0.0052 to 0.0032): the crop keeps fabric, print and
+  colour at a higher resolution, which predicts purchases better.
+- **Fusing strategies with reciprocal rank fusion.** The earlier hybrid (collaborative +
+  content) was the best strategy against the weak user-based CF, but next to item-to-item
+  CF fusion added nothing (+0.1% on validation) and fusing content hurt (-18%), so the
+  hybrid was removed.
+
+Re-recommending a customer's own recent purchases would score 0.0212 on all purchases,
+because many H&M customers rebuy items. The recommenders exclude past purchases by design,
+which costs that signal on the "all purchases" column.
+
+The prepared sample and catalog can reflect the full observation window (the catalog is
+the set of products the sample bought), so these are sample-level results, not a
+population estimate or a competition leaderboard score. In evaluation, co-purchase lift
+counts only baskets with catalog products. CLIP image vectors are fixed features, but index
+provenance is not recorded.
 
 The development workflow and remaining validation are recorded in
 [engineering workflow](docs/engineering-workflow.md).
