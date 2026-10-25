@@ -1,5 +1,6 @@
 """Core domain types shared by every layer (retrieval, recommenders, chat, API)."""
 
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
@@ -7,7 +8,7 @@ from typing import Protocol
 
 import numpy as np
 from PIL.Image import Image
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 
 class Product(BaseModel):
@@ -19,6 +20,15 @@ class Product(BaseModel):
     colour: str
     description: str
     price: float
+    shopify_category: str = "Uncategorized"
+    # Shopify attribute handle -> value, e.g. {"color": "Black", "target-gender": "Female"}
+    shopify_attributes: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("shopify_attributes", mode="before")
+    @classmethod
+    def _parse_json(cls, value: object) -> object:
+        # Parquet stores the mapping as a JSON string.
+        return json.loads(value) if isinstance(value, str) else value
 
 
 class User(BaseModel):

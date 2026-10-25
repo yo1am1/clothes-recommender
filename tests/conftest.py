@@ -59,6 +59,8 @@ def _product(
         colour=colour,
         description=f"{name} in {colour.lower()}.",
         price=price,
+        shopify_category=f"Apparel & Accessories > {PRODUCT_GROUPS[product_type]}",
+        shopify_attributes={"color": colour},
     )
 
 

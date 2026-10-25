@@ -2,10 +2,14 @@
 
 from collections.abc import Sequence
 from functools import cached_property
+from itertools import batched
 from typing import Any
 
 import numpy as np
 from PIL.Image import Image
+
+# Activations grow with batch size; one 15k-text call used ~6 GB, so inputs are chunked.
+MAX_BATCH = 256
 
 
 class ClipEncoder:
@@ -28,21 +32,33 @@ class ClipEncoder:
         return self._model.config.projection_dim
 
     def encode_images(self, images: Sequence[Image]) -> np.ndarray:
-        if not images:
-            return np.empty((0, self.dimension), dtype=np.float32)
         # CLIP expects 3 channels; uploads are often RGBA PNGs or greyscale.
-        rgb_images = [image.convert("RGB") for image in images]
-        inputs = self._processor(images=rgb_images, return_tensors="pt")
-        return self._embed(self._model.get_image_features, inputs)
+        chunks = [
+            self._embed(
+                self._model.get_image_features,
+                self._processor(images=[i.convert("RGB") for i in batch], return_tensors="pt"),
+            )
+            for batch in batched(images, MAX_BATCH, strict=False)
+        ]
+        return self._stack(chunks)
 
     def encode_texts(self, texts: Sequence[str]) -> np.ndarray:
-        if not texts:
-            return np.empty((0, self.dimension), dtype=np.float32)
         # Truncate to CLIP's 77-token context instead of failing on long chat messages.
-        inputs = self._processor(
-            text=list(texts), padding=True, truncation=True, return_tensors="pt"
-        )
-        return self._embed(self._model.get_text_features, inputs)
+        chunks = [
+            self._embed(
+                self._model.get_text_features,
+                self._processor(
+                    text=list(batch), padding=True, truncation=True, return_tensors="pt"
+                ),
+            )
+            for batch in batched(texts, MAX_BATCH, strict=False)
+        ]
+        return self._stack(chunks)
+
+    def _stack(self, chunks: list[np.ndarray]) -> np.ndarray:
+        if not chunks:
+            return np.empty((0, self.dimension), dtype=np.float32)
+        return np.vstack(chunks)
 
     def _embed(self, get_features: Any, inputs: Any) -> np.ndarray:
         import torch

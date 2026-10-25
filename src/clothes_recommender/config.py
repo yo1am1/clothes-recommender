@@ -51,6 +51,10 @@ class Settings(BaseSettings):
         return self.data_dir / "purchases.parquet"
 
     @property
+    def co_purchases_path(self) -> Path:
+        return self.data_dir / "co_purchases.parquet"
+
+    @property
     def images_dir(self) -> Path:
         return self.data_dir / "images"
 

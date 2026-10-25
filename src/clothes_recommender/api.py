@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from clothes_recommender.chat.assistant import AssistantReply, ChatTurn
 from clothes_recommender.config import get_settings
+from clothes_recommender.demo import DemoCustomer
 from clothes_recommender.domain import Product, ScoredProduct, User
 from clothes_recommender.recommenders.base import Recommender, UnknownUserError
 from clothes_recommender.recommenders.collaborative import SimilarUser
@@ -38,6 +39,7 @@ TopK = Annotated[int, Query(ge=1, le=MAX_TOP_K)]
 class ProductHit(BaseModel):
     product: Product
     score: float
+    reasons: list[str] = Field(default_factory=list)
 
 
 class TextSearchRequest(BaseModel):
@@ -143,6 +145,31 @@ def create_app(services: Services | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail=f"No image for product {product_id}.")
         return FileResponse(path, media_type="image/jpeg")
 
+    @app.get("/products/{product_id}/related")
+    def related_products(
+        product_id: int,
+        services: ServicesDep,
+        kind: Literal["complement", "alternative"] = "complement",
+        top_k: TopK = 10,
+    ) -> list[ProductHit]:
+        product = get_product(product_id, services)
+        hits = _to_hits(services, services.graph.related(product_id, kind, top_k))
+        reason = (
+            f"Bought on the same day by the same shoppers as {product.name}; "
+            "different product group."
+            if kind == "complement"
+            else f"Same specific Shopify category, product type and section as {product.name}, "
+            "with compatible mapped audience attributes and a higher approximate price."
+        )
+        for hit in hits:
+            hit.reasons = [reason]
+        return hits
+
+    @app.get("/products/{product_id}/graph")
+    def product_graph(product_id: int, services: ServicesDep, top_k: TopK = 12) -> dict:
+        get_product(product_id, services)
+        return services.graph.neighborhood(product_id, top_k)
+
     @app.post("/search/text")
     def search_by_text(request: TextSearchRequest, services: ServicesDep) -> list[ProductHit]:
         return _to_hits(services, services.search.by_text(request.query, request.top_k))
@@ -156,6 +183,10 @@ def create_app(services: Services | None = None) -> FastAPI:
     @app.get("/users")
     def list_users(services: ServicesDep) -> list[int]:
         return services.customers.user_ids()
+
+    @app.get("/demo/customers")
+    def demo_customers(services: ServicesDep) -> list[DemoCustomer]:
+        return services.demo_customers
 
     @app.get("/users/{user_id}")
     def get_user_profile(user_id: int, services: ServicesDep) -> UserProfile:
@@ -173,13 +204,19 @@ def create_app(services: Services | None = None) -> FastAPI:
     def recommend(
         user_id: int,
         services: ServicesDep,
-        strategy: Literal["content", "collaborative"] = "content",
+        strategy: Literal["content", "collaborative", "graph"] = "content",
         top_k: TopK = 10,
     ) -> list[ProductHit]:
-        recommender: Recommender = (
-            services.content_based if strategy == "content" else services.collaborative
-        )
-        return _to_hits(services, recommender.recommend(user_id, top_k))
+        recommender: Recommender = {
+            "content": services.content_based,
+            "collaborative": services.collaborative,
+            "graph": services.graph,
+        }[strategy]
+        hits = _to_hits(services, recommender.recommend(user_id, top_k))
+        if strategy == "graph":
+            for hit in hits:
+                hit.reasons = services.graph.reasons(user_id, hit.product.product_id)
+        return hits
 
     @app.get("/users/{user_id}/similar")
     def similar_users(user_id: int, services: ServicesDep, top_k: TopK = 5) -> list[SimilarUser]:

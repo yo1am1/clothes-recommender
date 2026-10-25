@@ -11,6 +11,7 @@ RUN uv sync --locked --no-dev --extra ui --no-install-project
 COPY README.md ./
 COPY src ./src
 COPY scripts ./scripts
+COPY taxonomy ./taxonomy
 COPY .streamlit ./.streamlit
 RUN uv sync --locked --no-dev --extra ui
 

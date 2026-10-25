@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from pydantic import ValidationError
 
 from clothes_recommender.catalog import CustomerData, DataFileMissingError, ProductCatalog
 
@@ -17,6 +18,8 @@ def _product_row(product_id: int, product_type: str) -> dict[str, object]:
         "colour": "Black",
         "description": "",
         "price": 19.99,
+        "shopify_category": "Apparel & Accessories > Clothing > Pants",
+        "shopify_attributes": '{"color": "Black"}',  # stored as JSON in parquet
     }
 
 
@@ -51,12 +54,32 @@ def test_catalog_lookup(catalog: ProductCatalog) -> None:
 
     assert product is not None
     assert (product.product_type, product.price) == ("Trousers", 19.99)
+    assert product.shopify_attributes == {"color": "Black"}
     assert catalog.get(404) is None
     assert len(catalog) == 3
 
 
 def test_get_many_keeps_order_and_skips_unknown_ids(catalog: ProductCatalog) -> None:
     assert [p.product_id for p in catalog.get_many([2, 404, 1])] == [2, 1]
+
+
+@pytest.mark.parametrize("attributes", ['{"color":', '["Black"]', '{"color": 123}'])
+def test_catalog_rejects_invalid_shopify_attributes(attributes: str) -> None:
+    row = _product_row(1, "Trousers") | {"shopify_attributes": attributes}
+    catalog = ProductCatalog(pd.DataFrame([row]))
+
+    with pytest.raises(ValidationError):
+        catalog.get(1)
+
+
+def test_catalog_before_enrichment_still_loads() -> None:
+    row = _product_row(1, "Trousers")
+    del row["shopify_category"], row["shopify_attributes"]
+
+    product = ProductCatalog(pd.DataFrame([row])).get(1)
+
+    assert product.shopify_category == "Uncategorized"
+    assert product.shopify_attributes == {}
 
 
 def test_iteration_and_distinct_values(catalog: ProductCatalog) -> None:

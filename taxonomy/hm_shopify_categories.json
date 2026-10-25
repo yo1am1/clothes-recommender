@@ -1,0 +1,891 @@
+{
+  "Alice band": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-2-14-8",
+    "category": "Apparel & Accessories > Clothing Accessories > Hair Accessories > Headbands",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are wearable decorative Alice bands/headbands, including metal, satin, velvet, bows, horns, and other toppers; none are specifically tiaras or functional hair bands."
+  },
+  "Baby Bib": {
+    "category_id": "gid://shopify/TaxonomyCategory/bt-10-16-7",
+    "category": "Baby & Toddler > Nursing & Feeding > Feeding Essentials > Bibs",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The example articles are baby triangular scarves described as bib-like neck accessories with adjustable closures, so the specific Bibs category fits better than generic children's accessories or carrier accessories."
+  },
+  "Backpack": {
+    "category_id": "gid://shopify/TaxonomyCategory/lb-1",
+    "category": "Luggage & Bags > Backpacks",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Bag": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-5",
+    "category": "Apparel & Accessories > Handbags, Wallets & Cases",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The examples include tote/shopper handbags and a cosmetic bag, so the broad category Handbags, Wallets & Cases fits every article, while Tote Bags or Shopping Totes do not fit the cosmetic bag."
+  },
+  "Ballerinas": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-8-9",
+    "category": "Apparel & Accessories > Shoes > Flats",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The examples are espadrille-style flat shoes with no heel or athletic, sandal, boot, slipper, or children's indication; among the candidates, Shoes > Flats is the most specific fit."
+  },
+  "Beanie": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-2-17-2",
+    "category": "Apparel & Accessories > Clothing Accessories > Hats > Beanies",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Belt": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-2-6",
+    "category": "Apparel & Accessories > Clothing Accessories > Belts",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Bikini top": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-20-24",
+    "category": "Apparel & Accessories > Clothing > Swimwear > Swimwear Tops",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are women's bikini tops, including halter, wrapover, and triangle styles, so Swimwear Tops fits more specifically than the general Swimwear category; none are period, children's, maternity, or one-piece swimwear."
+  },
+  "Blanket": {
+    "category_id": "gid://shopify/TaxonomyCategory/hg-15-1-4",
+    "category": "Home & Garden > Linens & Bedding > Bedding > Blankets",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Blazer": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-10-2-18",
+    "category": "Apparel & Accessories > Clothing > Outerwear > Coats & Jackets > Blazers",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Blouse": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-13-1",
+    "category": "Apparel & Accessories > Clothing > Clothing Tops > Blouses",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The examples are all general women's blouses/tops, including chiffon, viscose, and cr\u00eape styles; the tunic example is still described within the blouse product type, while none are specifically shirts, T-shirts, or sweaters."
+  },
+  "Bodysuit": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-13",
+    "category": "Apparel & Accessories > Clothing > Clothing Tops",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual rows include baby and adult bodysuits; a child-only category does not cover the product type."
+  },
+  "Bootie": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-8",
+    "category": "Apparel & Accessories > Shoes",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual rows include soft baby slippers and adult ankle boots; neither baby boots nor slippers covers the whole type."
+  },
+  "Boots": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-8-3",
+    "category": "Apparel & Accessories > Shoes > Boots",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Bra": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-6-3",
+    "category": "Apparel & Accessories > Clothing > Lingerie > Bras",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Bra extender": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-6-2-2-1",
+    "category": "Apparel & Accessories > Clothing > Lingerie > Bra Accessories > Bra Straps & Extenders > Bra Extenders",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Bracelet": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-6-3",
+    "category": "Apparel & Accessories > Jewelry > Bracelets",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Braces": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-2-28",
+    "category": "Apparel & Accessories > Clothing Accessories > Suspenders",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual descriptions specify adjustable elastic braces with metal fasteners: suspenders, not medical supports."
+  },
+  "Bucket hat": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-2-17-5",
+    "category": "Apparel & Accessories > Clothing Accessories > Hats > Bucket Hats",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Bumbag": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-5-4-22",
+    "category": "Apparel & Accessories > Handbags, Wallets & Cases > Handbags > Belt Bags",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The example is a waist-worn crossbody bag with an adjustable strap, which directly matches a Belt Bag; the broader Fanny Packs option is less specific."
+  },
+  "Cap": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-2-17",
+    "category": "Apparel & Accessories > Clothing Accessories > Hats",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual descriptions include both peaked caps and flat caps; baseball caps is too narrow."
+  },
+  "Cap/peaked": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-2-17",
+    "category": "Apparel & Accessories > Clothing Accessories > Hats",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The examples include a beanie and several general caps, so Hats is the most specific category that fits every article; narrower options like Baseball Caps, Flat Caps, or Snapback Caps do not cover the beanie."
+  },
+  "Cardigan": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-13-3",
+    "category": "Apparel & Accessories > Clothing > Clothing Tops > Cardigans",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are adult cardigans\u2014both the boucl\u00e9 wool-blend knit and sweatshirt-fabric zip styles\u2014so the specific Cardigans category fits better than the broader Sweaters or outerwear categories."
+  },
+  "Chem. cosmetics": {
+    "category_id": "gid://shopify/TaxonomyCategory/hb-3-2",
+    "category": "Health & Beauty > Personal Care > Cosmetics",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The examples span peel-off nail polish and temporary face stickers/tattoos, so they fit the broad Cosmetics category but not one specific makeup subtype; the set of nail polishes is not representative of all articles."
+  },
+  "Clothing mist": {
+    "category_id": "gid://shopify/TaxonomyCategory/hg-10-14",
+    "category": "Home & Garden > Household Supplies > Shoe Care & Tools",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The example is a spray for protecting shoes from dirt and water, so it fits Household Supplies > Shoe Care & Tools better than apparel, foot care, or cosmetic mist categories."
+  },
+  "Coat": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-10-2",
+    "category": "Apparel & Accessories > Clothing > Outerwear > Coats & Jackets",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The examples are adult coats/long jackets, but they are not specifically overcoats, capes, parkas, trench coats, wrap coats, raincoats, or another listed subtype."
+  },
+  "Costumes": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-3-3",
+    "category": "Apparel & Accessories > Costumes & Accessories > Costumes",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Cross-body bag": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-5-4-7",
+    "category": "Apparel & Accessories > Handbags, Wallets & Cases > Handbags > Cross Body Bags",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Cushion": {
+    "category_id": "gid://shopify/TaxonomyCategory/hg-3-64",
+    "category": "Home & Garden > Decor > Throw Pillows",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The example is a decorative cushion with a printed cover and filling, which fits Home & Garden > Decor > Throw Pillows rather than bedding pillows, pillowcases, or furniture cushions."
+  },
+  "Dog Wear": {
+    "category_id": "gid://shopify/TaxonomyCategory/ap-2-6",
+    "category": "Animals & Pet Supplies > Pet Supplies > Pet Apparel",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All example articles are knitted dog jumpers, so the most specific matching category is Animals & Pet Supplies > Pet Supplies > Pet Apparel."
+  },
+  "Dog wear": {
+    "category_id": "gid://shopify/TaxonomyCategory/ap-2-6",
+    "category": "Animals & Pet Supplies > Pet Supplies > Pet Apparel",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are dog clothing, including a wax coat, knitted jumpers, and fleece tops; they fit the general Pet Apparel category, while Pet Jackets or Pet Shirts would not cover every article."
+  },
+  "Dress": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-4",
+    "category": "Apparel & Accessories > Clothing > Dresses",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are ordinary knit or jersey dresses, with varying sleeve lengths, straps, lengths, and waist details; none are specifically wedding or bridal dresses."
+  },
+  "Dungarees": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1",
+    "category": "Apparel & Accessories > Clothing",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual descriptions include dungaree dresses, shorts and playsuits as well as overalls; contractor workwear is unsupported."
+  },
+  "Earring": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-6-6",
+    "category": "Apparel & Accessories > Jewelry > Earrings",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Earrings": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-6-6",
+    "category": "Apparel & Accessories > Jewelry > Earrings",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Eyeglasses": {
+    "category_id": "gid://shopify/TaxonomyCategory/hb-3-19-4",
+    "category": "Health & Beauty > Personal Care > Vision Care > Eyeglasses",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Felt hat": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-2-17",
+    "category": "Apparel & Accessories > Clothing Accessories > Hats",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual descriptions include a felted bucket hat as well as fedoras; felt is a material, not a single hat style."
+  },
+  "Fine cosmetics": {
+    "category_id": "gid://shopify/TaxonomyCategory/hb-3-2-6",
+    "category": "Health & Beauty > Personal Care > Cosmetics > Makeup",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The examples are lip balm and a face-paint set, which are makeup/cosmetic products overall; they do not all fit the narrower Lip Makeup or Face Makeup categories."
+  },
+  "Flat shoe": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-8-9",
+    "category": "Apparel & Accessories > Shoes > Flats",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The examples are adult flat footwear\u2014soft loafers and low/platform lace-up shoes\u2014not sandals, slippers, sneakers, boots, or shoe accessories."
+  },
+  "Flat shoes": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-8-9",
+    "category": "Apparel & Accessories > Shoes > Flats",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are loafers with flat or very low soles, which fit Flats and do not fit sandals, heels, athletic shoes, slippers, or boots."
+  },
+  "Flip flop": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-8-6",
+    "category": "Apparel & Accessories > Shoes > Sandals",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The examples are flip-flops and pool sliders, which are open-toe sandal-style footwear; candidate 1 is the most specific applicable category."
+  },
+  "Garment Set": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-11",
+    "category": "Apparel & Accessories > Clothing > Outfit Sets",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "Every example is a coordinated multi-piece clothing set\u2014tops or bodysuits with shorts or trousers, and some include hats\u2014so Outfit Sets is the most specific fitting category."
+  },
+  "Giftbox": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa",
+    "category": "Apparel & Accessories",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The examples are mixed gift sets spanning hats, scarves, running accessories, a charging cable, jewelry, and hair accessories, so the broad Apparel & Accessories category fits the product group better than any single accessory subtype or gift-box packaging category."
+  },
+  "Gloves": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-2-13",
+    "category": "Apparel & Accessories > Clothing Accessories > Gloves & Mittens",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are ordinary fashion gloves\u2014leather or knit, lined or trimmed\u2014and fit Gloves & Mittens rather than child-specific, sport, safety, medical, or specialty glove categories."
+  },
+  "Hair clip": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-2-14-6",
+    "category": "Apparel & Accessories > Clothing Accessories > Hair Accessories > Hair Pins, Claws & Clips",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual descriptions include metal hair grips and decorative clips as well as claws."
+  },
+  "Hair string": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-2-14",
+    "category": "Apparel & Accessories > Clothing Accessories > Hair Accessories",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual descriptions include a metal hair clip with an elastic, plain elastics and scrunchies; retain the broader hair accessories category."
+  },
+  "Hair ties": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-2-14-9",
+    "category": "Apparel & Accessories > Clothing Accessories > Hair Accessories > Ponytail Holders",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual descriptions include scrunchies, plain elastics and coiled ties; spiral ties is too narrow."
+  },
+  "Hair/alice band": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-2-14",
+    "category": "Apparel & Accessories > Clothing Accessories > Hair Accessories",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual descriptions include hair elastics, headbands and Alice bands; no one subtype covers the type."
+  },
+  "Hairband": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-2-14-8",
+    "category": "Apparel & Accessories > Clothing Accessories > Hair Accessories > Headbands",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "Both example articles are fabric headbands worn in the hair, and candidate 1 is the most specific matching headband category."
+  },
+  "Hat/beanie": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-2-17",
+    "category": "Apparel & Accessories > Clothing Accessories > Hats",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "The combined type and actual descriptions include hats as well as beanies; retain the broader hats category."
+  },
+  "Hat/brim": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-2-17",
+    "category": "Apparel & Accessories > Clothing Accessories > Hats",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The examples include general brimmed hats, sun hats, and a cap, so the broad Hats category is the most specific candidate that fits every article; Sun Hats would not fit the fake suede cap."
+  },
+  "Headband": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-2-14-8",
+    "category": "Apparel & Accessories > Clothing Accessories > Hair Accessories > Headbands",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Heeled sandals": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-8-6",
+    "category": "Apparel & Accessories > Shoes > Sandals",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are open-toe or open-sided heeled sandals, so Sandals fits the whole set better than the broader Heels category."
+  },
+  "Heels": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-8-10",
+    "category": "Apparel & Accessories > Shoes > Heels",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Hoodie": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1",
+    "category": "Apparel & Accessories > Clothing",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual descriptions include padded outerwear, running jackets and sweatshirt tops; no single tops or coats category covers the type."
+  },
+  "Jacket": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-10",
+    "category": "Apparel & Accessories > Clothing > Outerwear",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual descriptions include biker jackets, coats and padded bodywarmers across adult and child sections; activewear-only jackets is too narrow."
+  },
+  "Jumpsuit/Playsuit": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-9",
+    "category": "Apparel & Accessories > Clothing > One-Pieces",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual rows include adult and child playsuits; a child-only category does not cover the product type."
+  },
+  "Keychain": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-4-1",
+    "category": "Apparel & Accessories > Handbag & Wallet Accessories > Keychains",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The example is a wallet chain accessory with carabiners, and candidate 1 is the direct Keychains category; the alternatives are for charms, phone accessories, key cases, luggage tags, or unrelated goods."
+  },
+  "Kids Underwear top": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-25-11-2-3",
+    "category": "Apparel & Accessories > Clothing > Baby & Children's Clothing > Baby & Children's Underwear > Girls' Underwear > Girls' Undershirts",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The examples are girls' underwear crop/short tops, so Girls' Undershirts is more specific and fits better than the generic girls' underwear or activewear categories."
+  },
+  "Leg warmers": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-2-19",
+    "category": "Apparel & Accessories > Clothing Accessories > Leg Warmers",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Leggings/Tights": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1",
+    "category": "Apparel & Accessories > Clothing",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual descriptions include sheer hosiery tights, leggings and running tights; the leggings-only pants branch does not cover all rows."
+  },
+  "Long John": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-17-1",
+    "category": "Apparel & Accessories > Clothing > Sleepwear & Loungewear > Long Johns",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Marker pen": {
+    "category_id": "gid://shopify/TaxonomyCategory/os-11-11-4-2",
+    "category": "Office Supplies > Office Instruments > Writing & Drawing Instruments > Markers & Highlighters > Markers",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are textile markers used for decorating fabric, which fits the specific stationery category Markers rather than general writing instruments or felt tips."
+  },
+  "Mobile case": {
+    "category_id": "gid://shopify/TaxonomyCategory/el-4-8-4-2",
+    "category": "Electronics > Communications > Telephony > Mobile & Smart Phone Accessories > Mobile Phone Cases",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All example articles are protective plastic smartphone cases, which fit Mobile Phone Cases rather than skins, battery cases, housings, or other accessories."
+  },
+  "Moccasins": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-8-7",
+    "category": "Apparel & Accessories > Shoes > Slippers",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The example articles are soft slippers with terry linings, insoles, and soft soles; the trainer wording does not make them sneakers or athletic shoes."
+  },
+  "Necklace": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-6-8",
+    "category": "Apparel & Accessories > Jewelry > Necklaces",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Night gown": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-17-3",
+    "category": "Apparel & Accessories > Clothing > Sleepwear & Loungewear > Nightgowns",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are women's sleep garments\u2014nightshirt, nightslips, and negligee\u2014so Nightgowns is the most specific matching sleepwear category."
+  },
+  "Nipple covers": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-6-2-4",
+    "category": "Apparel & Accessories > Clothing > Lingerie > Bra Accessories > Breast Petals & Concealers",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The examples are lingerie accessories, including adhesive nipple covers/concealers and silicone breast inserts; the unrelated laundry bag, garment tape, and suspender belt do not fit a more specific single category, while Breast Petals & Concealers best matches the stated product type."
+  },
+  "Other shoe": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-8",
+    "category": "Apparel & Accessories > Shoes",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The examples are adult loafers and Derby shoes, while none fit the narrower flats, heels, boots, sneakers, sandals, or athletic categories."
+  },
+  "Outdoor Waistcoat": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-10-6",
+    "category": "Apparel & Accessories > Clothing > Outerwear > Vests",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are padded outdoor gilets/vests, so the specific outerwear Vests category fits better than generic coats, activewear, or sport-specific categories."
+  },
+  "Outdoor overall": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-9",
+    "category": "Apparel & Accessories > Clothing > One-Pieces",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are insulated or fleece baby all-in-one garments covering the full body, so One-Pieces fits better than snow-specific suits because the articles are general outdoor overalls rather than explicitly snow suits."
+  },
+  "Outdoor trousers": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-12",
+    "category": "Apparel & Accessories > Clothing > Pants",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual descriptions include running tights and rain trousers as well as snow trousers; snow pants is too narrow."
+  },
+  "Polo shirt": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-13-6",
+    "category": "Apparel & Accessories > Clothing > Clothing Tops > Polos",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are adult polo-style tops with ribbed collars and button plackets, so the specific Polos category fits better than generic tops or shirt subcategories."
+  },
+  "Pre-walkers": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-8-11-6",
+    "category": "Apparel & Accessories > Shoes > Baby & Children's Shoes > First Steps & Crawlers",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The example is a baby pre-walker/bootee with soft soles, which fits First Steps & Crawlers better than the broader baby shoe or boot categories."
+  },
+  "Pumps": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-8-10",
+    "category": "Apparel & Accessories > Shoes > Heels",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are court shoes/pumps with substantial covered heels of 8\u201310 cm, so they fit Shoes > Heels rather than flats or other shoe categories."
+  },
+  "Pyjama bottom": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-17-4",
+    "category": "Apparel & Accessories > Clothing > Sleepwear & Loungewear > Pajamas",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are explicitly pyjama bottoms or sleep shorts, so the sleepwear-specific Pajamas category fits better than generic loungewear bottoms."
+  },
+  "Pyjama jumpsuit/playsuit": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-17-6",
+    "category": "Apparel & Accessories > Clothing > Sleepwear & Loungewear > Onesies",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The examples are all one-piece, all-in-one fleece or velour sleepwear that fastens along the front and leg, fitting Onesies more specifically than the general Pajamas category."
+  },
+  "Pyjama set": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-17-4",
+    "category": "Apparel & Accessories > Clothing > Sleepwear & Loungewear > Pajamas",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "Every example is a coordinated pajama set consisting of a long-sleeved pajama shirt and shorts, so Pajamas is more specific and accurate than general loungewear or outfit-set categories."
+  },
+  "Ring": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-6-9",
+    "category": "Apparel & Accessories > Jewelry > Rings",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Robe": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-17-5",
+    "category": "Apparel & Accessories > Clothing > Sleepwear & Loungewear > Robes",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Sandals": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-8-6",
+    "category": "Apparel & Accessories > Shoes > Sandals",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Sarong": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-20-7",
+    "category": "Apparel & Accessories > Clothing > Swimwear > Cover Ups",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The Sassy and Leila Sarong examples are adult beach cover-up garments worn over swimwear, while the towel cape and beach towel are not more specific swimwear subtypes."
+  },
+  "Scarf": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-2-26",
+    "category": "Apparel & Accessories > Clothing Accessories > Scarves & Shawls",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are wearable scarves, including a reversible woven scarf and knit tube scarves, so the specific Scarves & Shawls category fits."
+  },
+  "Sewing kit": {
+    "category_id": "gid://shopify/TaxonomyCategory/ae-2-1-5-2-3",
+    "category": "Arts & Entertainment > Hobbies & Creative Arts > Arts & Crafts > Craft Organization > Sewing Baskets & Kits > Sewing Kits",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Shirt": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-13-7",
+    "category": "Apparel & Accessories > Clothing > Clothing Tops > Shirts",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The examples are standard collared flannel shirts, so the specific Shirts category fits; they are not described as dress shirts, overshirts, polos, or other specialized tops."
+  },
+  "Shorts": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-14",
+    "category": "Apparel & Accessories > Clothing > Shorts",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The examples are general shorts spanning jersey, running, denim, and harem styles, so the broad Shorts category fits all of them while narrower categories do not."
+  },
+  "Shoulder bag": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-5-4-19",
+    "category": "Apparel & Accessories > Handbags, Wallets & Cases > Handbags > Shoulder Bags",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Side table": {
+    "category_id": "gid://shopify/TaxonomyCategory/hg-10",
+    "category": "Home & Garden > Household Supplies",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Despite the source type name, all 13 rows describe laundry detergent, stain remover, wash bags or shoe wipes; these are household supplies, not furniture."
+  },
+  "Skirt": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-15",
+    "category": "Apparel & Accessories > Clothing > Skirts",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are ordinary short jersey skirts, with no indication they are loungewear, children's, school uniform, dancewear, maternity, or another specialized subtype."
+  },
+  "Sleep Bag": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-17-7",
+    "category": "Apparel & Accessories > Clothing > Sleepwear & Loungewear > Wearable Blankets & Sleep Sacks",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are padded indoor sleep bags, which fit Shopify's specific Wearable Blankets & Sleep Sacks category better than generic pajamas or children's sleepwear."
+  },
+  "Sleeping sack": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-17-7",
+    "category": "Apparel & Accessories > Clothing > Sleepwear & Loungewear > Wearable Blankets & Sleep Sacks",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are padded infant sleep bags/sleep sacks intended for indoor sleeping, matching Wearable Blankets & Sleep Sacks rather than pajamas, onesies, or general children's sleepwear."
+  },
+  "Slippers": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-8-7",
+    "category": "Apparel & Accessories > Shoes > Slippers",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Sneakers": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-8-8",
+    "category": "Apparel & Accessories > Shoes > Sneakers",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Socks": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-18",
+    "category": "Apparel & Accessories > Clothing > Socks",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The examples span stockings, stay-ups, short socks, and sneaker socks, so the broad Socks category is the only candidate that fits every article; hosiery is too narrow for the sock examples and ankle socks is too narrow for stockings."
+  },
+  "Stain remover spray": {
+    "category_id": "gid://shopify/TaxonomyCategory/hg-10-14",
+    "category": "Home & Garden > Household Supplies > Shoe Care & Tools",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "Both examples are products for cleaning, whitening, and maintaining trainers, fitting the general Shoe Care & Tools category; they are not specifically a stain-remover treatment, polish/wax, or dye."
+  },
+  "Straw hat": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-2-17",
+    "category": "Apparel & Accessories > Clothing Accessories > Hats",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual descriptions include straw hats with varied brim widths and indented crowns; straw identifies material rather than a single hat style."
+  },
+  "Sunglasses": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-2-27",
+    "category": "Apparel & Accessories > Clothing Accessories > Sunglasses",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Sweater": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-13-12",
+    "category": "Apparel & Accessories > Clothing > Clothing Tops > Sweaters",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The examples are general upper-body sweaters/sweatshirts and a long-sleeved sports top, so the general Sweaters category fits all of them; the sweatshirt-specific and activewear categories do not fit every example."
+  },
+  "Swimsuit": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-20-22",
+    "category": "Apparel & Accessories > Clothing > Swimwear > One-Piece Swimsuits",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "Every example is a standard adult one-piece swimsuit, with no period, maternity, children's, tankini, dress, or top-specific features."
+  },
+  "Swimwear bottom": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-20",
+    "category": "Apparel & Accessories > Clothing > Swimwear",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual rows span adult and child bikini bottoms, swim briefs and swim shorts; retain the broader swimwear category."
+  },
+  "Swimwear set": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-20",
+    "category": "Apparel & Accessories > Clothing > Swimwear",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual descriptions include bikinis, a tankini and a bikini top; classic bikinis does not cover the whole type."
+  },
+  "Swimwear top": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-25-8",
+    "category": "Apparel & Accessories > Clothing > Baby & Children's Clothing > Baby & Children's Swimwear",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual descriptions include child swim tops, sets and full swimsuits; tops alone is too narrow."
+  },
+  "T-shirt": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-13-8",
+    "category": "Apparel & Accessories > Clothing > Clothing Tops > T-Shirts",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "Every example is an adult short-sleeved jersey tee/T-shirt, so the specific Clothing Tops > T-Shirts category fits better than generic tops, shirts, or children's/activewear alternatives."
+  },
+  "Tailored Waistcoat": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-10-6",
+    "category": "Apparel & Accessories > Clothing > Outerwear > Vests",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are tailored suit waistcoats, which are sleeveless vest garments; they are not complete suits, tuxedos, jackets, or outerwear coats."
+  },
+  "Tie": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-2-23",
+    "category": "Apparel & Accessories > Clothing Accessories > Neckties",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual descriptions include narrow neckties as well as bow ties and matching sets."
+  },
+  "Top": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-13",
+    "category": "Apparel & Accessories > Clothing > Clothing Tops",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are general long-sleeved tops, including a sports top and polo-neck tops, without enough evidence to classify every item as shirts, sweaters, polos, T-shirts, or another narrower subtype."
+  },
+  "Tote bag": {
+    "category_id": "gid://shopify/TaxonomyCategory/lb-13",
+    "category": "Luggage & Bags > Tote Bags",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Towel": {
+    "category_id": "gid://shopify/TaxonomyCategory/hg-15-4",
+    "category": "Home & Garden > Linens & Bedding > Towels",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Toy": {
+    "category_id": "gid://shopify/TaxonomyCategory/tg-5",
+    "category": "Toys & Games > Toys",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Trousers": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-12",
+    "category": "Apparel & Accessories > Clothing > Pants",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual descriptions include jeans, running trousers and joggers across adult and child sections; joggers is too narrow."
+  },
+  "Umbrella": {
+    "category_id": "gid://shopify/TaxonomyCategory/hg-16-2",
+    "category": "Home & Garden > Parasols & Rain Umbrellas > Rain Umbrellas",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are compact telescopic rain umbrellas with matching covers, fitting Rain Umbrellas rather than outdoor, golf, parasol, or accessory categories."
+  },
+  "Underdress": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-6",
+    "category": "Apparel & Accessories > Clothing > Lingerie",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual descriptions include slips and shaping underdresses; undershirts is not an adequate shared category."
+  },
+  "Underwear Tights": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1",
+    "category": "Apparel & Accessories > Clothing",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual descriptions include stockings, shaping shorts and maternity fleece leggings; hosiery alone does not cover all rows."
+  },
+  "Underwear body": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1",
+    "category": "Apparel & Accessories > Clothing",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual rows include adult lingerie and shapewear bodysuits plus child all-in-one pyjamas; womens underpants is incorrect and no narrower category covers all rows."
+  },
+  "Underwear bottom": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1",
+    "category": "Apparel & Accessories > Clothing",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual rows include female, male and child underwear; no gender-specific underwear branch covers the type."
+  },
+  "Underwear corset": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-6-15",
+    "category": "Apparel & Accessories > Clothing > Lingerie > Corsets & Bustiers",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "Every example is a corset or bustier lingerie garment with structured, underwired cups and closures, fitting Corsets & Bustiers rather than shapewear or bras."
+  },
+  "Underwear set": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-6-16",
+    "category": "Apparel & Accessories > Clothing > Lingerie > Lingerie Sets",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "The examples are women's intimate apparel, including suspender belts, a vest-and-briefs set, and pyjamas; among the candidates, Lingerie Sets is the only category matching the product group's mixed lingerie-set scope."
+  },
+  "Vest top": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-1-13-9",
+    "category": "Apparel & Accessories > Clothing > Clothing Tops > Tank Tops",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are narrow-strap jersey tank tops, including the HELENA tanktop, which fit Clothing Tops > Tank Tops rather than outerwear, activewear, or other top types."
+  },
+  "Wallet": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-5-5-7",
+    "category": "Apparel & Accessories > Handbags, Wallets & Cases > Wallets & Money Clips > Wallets",
+    "method": "exact",
+    "confidence": "high",
+    "reason": "Unique category with the same name."
+  },
+  "Washing bag": {
+    "category_id": "gid://shopify/TaxonomyCategory/hg-10-9-18-1",
+    "category": "Home & Garden > Household Supplies > Laundry Supplies > Laundry Wash Bags & Frames > Laundry Wash Bags",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "The single actual description identifies a GUPPYFRIEND machine-wash laundry bag."
+  },
+  "Watch": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-6-11",
+    "category": "Apparel & Accessories > Jewelry > Watches",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "Every example is a complete wearable watch with its own dial and strap, not a replacement band or other watch accessory."
+  },
+  "Waterbottle": {
+    "category_id": "gid://shopify/TaxonomyCategory/hg-11-3-11",
+    "category": "Home & Garden > Kitchen & Dining > Food & Beverage Carriers > Water Bottles",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual descriptions include reusable steel, glass and plastic drinking bottles; the generic water bottles category avoids assuming athletic use."
+  },
+  "Wedge": {
+    "category_id": "gid://shopify/TaxonomyCategory/aa-8",
+    "category": "Apparel & Accessories > Shoes",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual descriptions include sandals and mules with wedge heels; retain the broader shoes category."
+  },
+  "Weekend/Gym bag": {
+    "category_id": "gid://shopify/TaxonomyCategory/lb-6",
+    "category": "Luggage & Bags > Duffel Bags",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "All examples are general weekend/duffel-style bags with handles, shoulder straps, zippers, and compartments; they are not specifically identified as gym bags, so the broader Duffel Bags category fits best."
+  },
+  "Wireless earphone case": {
+    "category_id": "gid://shopify/TaxonomyCategory/el-2-1-2-3-1",
+    "category": "Electronics > Audio > Audio Accessories > Headphone & Headset Accessories > Headphone Carrying Cases > Earbud & In-Ear Headphone Carrying Cases",
+    "method": "llm",
+    "confidence": "high",
+    "reason": "Both example articles are protective cases for AirPods, which are earbuds, so the specific earbud and in-ear headphone carrying case category fits best."
+  },
+  "Wood balls": {
+    "category_id": "gid://shopify/TaxonomyCategory/hg-10-11-4-2",
+    "category": "Home & Garden > Household Supplies > Pest Control > Repellents > Household Insect Repellents",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "The single actual description identifies cedar rings intended to repel wardrobe moths and pests, not toys or laundry balls."
+  },
+  "Zipper head": {
+    "category_id": "gid://shopify/TaxonomyCategory/ae-2-1-2-2-5",
+    "category": "Arts & Entertainment > Hobbies & Creative Arts > Arts & Crafts > Art & Crafting Materials > Craft Fasteners & Closures > Zipper Pulls",
+    "method": "offline_audit",
+    "confidence": "high",
+    "reason": "Actual descriptions specify replacement zip tabs to repair broken garment and bag zips, not dressing aids."
+  }
+}

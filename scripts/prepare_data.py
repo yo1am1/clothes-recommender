@@ -8,10 +8,12 @@ Then:
 
 Keeps the most recent weeks of transactions, samples active customers, and writes
 products/users/purchases parquet files plus downsized photos of every product they bought.
-The archive is read in place: nothing else is extracted.
+Co-purchase links between those products are counted over all shoppers, not just the
+sample, so they stay dense. The archive is read in place: nothing else is extracted.
 """
 
 import argparse
+import json
 import logging
 import zipfile
 from collections.abc import Sequence
@@ -24,9 +26,11 @@ import pyarrow as pa
 import pyarrow.compute as pc
 from PIL import Image
 from pyarrow import csv
+from scipy.sparse import csr_array, triu
 from tqdm import tqdm
 
 from clothes_recommender.config import get_settings
+from scripts.shopify_enrichment import shopify_attributes, shopify_categories
 
 # Prices in the dataset are normalised; x590 recovers real euro price points (0.0508 -> 29.99).
 # The factor comes from the Kaggle competition discussion and is an approximation.
@@ -34,6 +38,8 @@ HM_PRICE_SCALE = 590
 DATASET_LAST_DAY = date(2020, 9, 22)
 # Enough history per customer for both the taste vector and collaborative overlap.
 MIN_PURCHASES = 5
+# Pairs bought together only once are mostly noise.
+MIN_CO_PURCHASES = 2
 # CLIP looks at 224 px, so larger photos would only cost disk space.
 PHOTO_MAX_SIZE = (384, 576)
 
@@ -58,13 +64,20 @@ def read_recent_transactions(archive: zipfile.ZipFile, since: date) -> pd.DataFr
     """Stream the 31M-row transactions file and keep rows from `since` onwards."""
     options = csv.ConvertOptions(
         include_columns=["t_dat", "customer_id", "article_id", "price"],
-        column_types={"t_dat": pa.date32(), "article_id": pa.int64(), "price": pa.float64()},
+        strings_can_be_null=True,
+        column_types={
+            "t_dat": pa.date32(),
+            "customer_id": pa.string(),
+            "article_id": pa.int64(),
+            "price": pa.float64(),
+        },
     )
     batches = []
     with archive.open("transactions_train.csv") as raw:
-        for batch in csv.open_csv(raw, convert_options=options):
+        reader = csv.open_csv(raw, convert_options=options)
+        for batch in reader:
             batches.append(batch.filter(pc.greater_equal(batch["t_dat"], pa.scalar(since))))
-    table = pa.Table.from_batches(batches)
+        table = pa.Table.from_batches(batches, schema=reader.schema)
     return table.to_pandas().astype({"customer_id": "category"})
 
 
@@ -75,6 +88,39 @@ def sample_customers(transactions: pd.DataFrame, size: int, seed: int) -> list[s
         eligible, size=min(size, len(eligible)), replace=False
     )
     return sorted(chosen.tolist())
+
+
+def co_purchases(transactions: pd.DataFrame, article_ids: Sequence[int]) -> pd.DataFrame:
+    """Product pairs bought in the same basket (one customer, one day), with count and lift.
+
+    Lift is how much more often the pair is bought together than chance predicts, so
+    best-sellers that land in every basket don't dominate the links. The denominator
+    includes all recent baskets, including those containing only non-catalog products.
+    """
+    baskets = transactions.groupby(["customer_id", "t_dat"], observed=True).ngroup()
+    in_catalog = transactions["article_id"].isin(article_ids)
+    columns = pd.Categorical(
+        transactions.loc[in_catalog, "article_id"], categories=article_ids
+    ).codes
+    contains = csr_array(
+        (np.ones(in_catalog.sum()), (baskets[in_catalog].to_numpy(), columns)),
+        shape=(baskets.nunique(), len(article_ids)),
+    )
+    contains = (contains > 0).astype(np.float64)  # buying two of an item is still one basket
+    pairs = triu(contains.T @ contains, k=1).tocoo()
+    keep = pairs.data >= MIN_CO_PURCHASES
+    rows, cols, together = pairs.row[keep], pairs.col[keep], pairs.data[keep]
+    basket_count = np.asarray(contains.sum(axis=0)).ravel()
+    lift = together * contains.shape[0] / (basket_count[rows] * basket_count[cols])
+    ids = np.asarray(article_ids, dtype=np.int64)
+    return pd.DataFrame(
+        {
+            "product_id": ids[rows],
+            "other_id": ids[cols],
+            "count": together.astype(int),
+            "lift": lift.round(3),
+        }
+    )
 
 
 def photo_member(article_id: int) -> str:
@@ -90,15 +136,27 @@ def save_photo(archive: zipfile.ZipFile, article_id: int, images_dir: Path) -> N
 
 
 def prepare(archive_path: Path, data_dir: Path, weeks: int, customer_count: int, seed: int) -> None:
+    if weeks <= 0 or customer_count <= 0:
+        raise ValueError("weeks and customer_count must be positive")
+    if seed < 0:
+        raise ValueError("seed must be nonnegative")
     images_dir = data_dir / "images"
-    images_dir.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(archive_path) as archive:
         since = DATASET_LAST_DAY - timedelta(weeks=weeks) + timedelta(days=1)
         transactions = read_recent_transactions(archive, since)
         logger.info("Kept %d transactions since %s", len(transactions), since)
 
+        if (
+            transactions[["customer_id", "article_id", "price"]].isna().any().any()
+            or not np.isfinite(transactions["price"]).all()
+            or (transactions["price"] <= 0).any()
+        ):
+            raise ValueError(
+                "Recent transactions must have customer/article IDs and finite positive prices"
+            )
         customer_ids = sample_customers(transactions, customer_count, seed)
-        user_id_of = {customer_id: user_id for user_id, customer_id in enumerate(customer_ids, 1)}
+        if not customer_ids:
+            raise ValueError("No eligible customers in the requested transaction window")
         bought = transactions[transactions["customer_id"].isin(customer_ids)]
 
         # Some articles have no photo in the archive; they can't be embedded, so they're dropped.
@@ -106,50 +164,63 @@ def prepare(archive_path: Path, data_dir: Path, weeks: int, customer_count: int,
         article_ids = sorted(
             a for a in bought["article_id"].unique().tolist() if photo_member(a) in photos
         )
+        if not article_ids:
+            raise ValueError("No photos found for products bought by sampled customers")
         bought = bought[bought["article_id"].isin(article_ids)]
+        customers_with_photos = set(bought["customer_id"])
+        customer_ids = [c for c in customer_ids if c in customers_with_photos]
+        user_id_of = {customer_id: user_id for user_id, customer_id in enumerate(customer_ids, 1)}
 
         with archive.open("articles.csv") as raw:
             articles = pd.read_csv(raw, dtype={"article_id": "int64"})
+        articles = articles[articles["article_id"].isin(article_ids)]
+        if articles["article_id"].duplicated().any() or set(articles["article_id"]) != set(
+            article_ids
+        ):
+            raise ValueError("articles.csv must contain exactly one row per selected product")
         median_price = transactions.groupby("article_id")["price"].median()
-        products = (
-            articles[articles["article_id"].isin(article_ids)]
-            .assign(
-                description=lambda df: df["detail_desc"].fillna(""),
-                price=lambda df: (df["article_id"].map(median_price) * HM_PRICE_SCALE).round(2),
-            )
-            .rename(
-                columns={
-                    "article_id": "product_id",
-                    "prod_name": "name",
-                    "product_type_name": "product_type",
-                    "product_group_name": "product_group",
-                    "index_group_name": "section",
-                    "colour_group_name": "colour",
-                }
-            )[
-                [
-                    "product_id",
-                    "name",
-                    "product_type",
-                    "product_group",
-                    "section",
-                    "colour",
-                    "description",
-                    "price",
-                ]
+        products = articles.assign(
+            description=lambda df: df["detail_desc"].fillna(""),
+            price=lambda df: (df["article_id"].map(median_price) * HM_PRICE_SCALE).round(2),
+            shopify_category=lambda df: shopify_categories(df["product_type_name"]),
+            shopify_attributes=lambda df: df.apply(
+                lambda row: json.dumps(shopify_attributes(row)), axis=1
+            ),
+        ).rename(
+            columns={
+                "article_id": "product_id",
+                "prod_name": "name",
+                "product_type_name": "product_type",
+                "product_group_name": "product_group",
+                "index_group_name": "section",
+                "colour_group_name": "colour",
+            }
+        )[
+            [
+                "product_id",
+                "name",
+                "product_type",
+                "product_group",
+                "section",
+                "colour",
+                "description",
+                "price",
+                "shopify_category",
+                "shopify_attributes",
             ]
-        )
+        ]
 
         with archive.open("customers.csv") as raw:
-            customers = pd.read_csv(raw, usecols=["customer_id", "age"])
-        users = (
-            customers[customers["customer_id"].isin(user_id_of)]
-            .assign(
-                user_id=lambda df: df["customer_id"].map(user_id_of),
-                age=lambda df: df["age"].astype("Int64"),
-            )
-            .sort_values("user_id")[["user_id", "age"]]
-        )
+            customers = pd.read_csv(raw, usecols=["customer_id", "age"], dtype={"customer_id": str})
+        customers = customers[customers["customer_id"].isin(user_id_of)]
+        if customers["customer_id"].duplicated().any() or set(customers["customer_id"]) != set(
+            user_id_of
+        ):
+            raise ValueError("customers.csv must contain exactly one row per selected customer")
+        users = customers.assign(
+            user_id=lambda df: df["customer_id"].map(user_id_of),
+            age=lambda df: df["age"].astype("Int64"),
+        ).sort_values("user_id")[["user_id", "age"]]
         purchases = pd.DataFrame(
             {
                 "user_id": bought["customer_id"].astype(str).map(user_id_of),
@@ -158,17 +229,24 @@ def prepare(archive_path: Path, data_dir: Path, weeks: int, customer_count: int,
             }
         )
 
+        links = co_purchases(transactions, article_ids)
+        images_dir.mkdir(parents=True, exist_ok=True)
         for article_id in tqdm(article_ids, unit="photo", desc="Extracting photos"):
             save_photo(archive, article_id, images_dir)
 
     products.to_parquet(data_dir / "products.parquet", index=False)
     users.to_parquet(data_dir / "users.parquet", index=False)
     purchases.to_parquet(data_dir / "purchases.parquet", index=False)
+    links.to_parquet(data_dir / "co_purchases.parquet", index=False)
+    linked = len(set(links["product_id"]) | set(links["other_id"]))
     logger.info(
-        "Wrote %d products, %d users, %d purchases to %s",
+        "Wrote %d products, %d users, %d purchases and %d co-purchase links "
+        "(%.0f%% of products have at least one) to %s",
         len(products),
         len(users),
         len(purchases),
+        len(links),
+        100 * linked / max(len(products), 1),
         data_dir,
     )
 

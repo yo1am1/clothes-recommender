@@ -27,6 +27,8 @@ def make_catalog() -> Callable[[Sequence[ProductSpec]], ProductCatalog]:
                 "colour": "Black",
                 "description": "",
                 "price": 10.0,
+                "shopify_category": f"Apparel & Accessories > {product_group}",
+                "shopify_attributes": {},
             }
             for product_id, product_group in specs
         ]

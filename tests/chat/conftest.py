@@ -82,6 +82,7 @@ def catalog() -> ProductCatalog:
             24.99,
         ),
     ]
+    shopify = {"shopify_category": "Apparel & Accessories > Clothing", "shopify_attributes": "{}"}
     columns = [
         "product_id",
         "name",
@@ -92,7 +93,7 @@ def catalog() -> ProductCatalog:
         "description",
         "price",
     ]
-    return ProductCatalog(pd.DataFrame(rows, columns=columns))
+    return ProductCatalog(pd.DataFrame(rows, columns=columns).assign(**shopify))
 
 
 @pytest.fixture

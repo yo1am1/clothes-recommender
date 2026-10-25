@@ -14,6 +14,7 @@ from clothes_recommender.chat.assistant import AssistantReply
 from clothes_recommender.chat.intent import SearchIntent
 from clothes_recommender.recommenders.collaborative import CollaborativeRecommender
 from clothes_recommender.recommenders.content_based import ContentBasedRecommender
+from clothes_recommender.recommenders.graph import GraphRecommender
 from clothes_recommender.recommenders.popularity import PopularityRecommender
 from clothes_recommender.search import ProductSearch
 from clothes_recommender.services import Services
@@ -48,6 +49,12 @@ def services(sample_catalog, vector_store, fake_encoder, tmp_path) -> Services:
         search=ProductSearch(fake_encoder, vector_store),
         content_based=ContentBasedRecommender(customers, sample_catalog, vector_store, popularity),
         collaborative=CollaborativeRecommender(customers, popularity),
+        graph=GraphRecommender(
+            customers,
+            sample_catalog,
+            popularity,
+            pd.DataFrame([(1, 3, 2, 1.5)], columns=["product_id", "other_id", "count", "lift"]),
+        ),
         images_dir=tmp_path,
         assistant=None,
     )
@@ -107,7 +114,26 @@ def test_user_profile_lists_purchases_with_products(client) -> None:
     assert client.get("/users/404").status_code == 404
 
 
-@pytest.mark.parametrize("strategy", ["content", "collaborative"])
+def test_demo_examples_are_real_and_leave_all_users_available(client) -> None:
+    users_before = client.get("/users").json()
+    response = client.get("/demo/customers")
+    assert response.status_code == 200
+    examples = response.json()
+    ids = [example["user_id"] for example in examples]
+    assert 0 < len(ids) <= 10
+    assert len(ids) == len(set(ids))
+    assert set(ids) <= set(users_before)
+    for example in examples:
+        assert example["label"] and example["description"]
+        profile = client.get(f"/users/{example['user_id']}").json()
+        assert example["focus_product_id"] in {
+            purchase["product"]["product_id"] for purchase in profile["purchases"]
+        }
+    assert client.get("/users").json() == users_before
+    assert client.get("/demo/customers").json() == examples
+
+
+@pytest.mark.parametrize("strategy", ["content", "collaborative", "graph"])
 def test_recommendations_exclude_purchases(client, strategy) -> None:
     response = client.get("/users/1/recommendations", params={"strategy": strategy, "top_k": 3})
     assert response.status_code == 200
@@ -119,6 +145,34 @@ def test_collaborative_recommends_what_similar_users_bought(client) -> None:
     assert client.get("/users/1/similar").json()[0]["user_id"] == 2
     hits = client.get("/users/1/recommendations", params={"strategy": "collaborative"}).json()
     assert hits[0]["product"]["product_id"] == 3
+
+
+def test_graph_recommendations_include_evidence_and_reject_unknown_users(client) -> None:
+    hits = client.get("/users/1/recommendations", params={"strategy": "graph"}).json()
+    linked = next(hit for hit in hits if hit["product"]["product_id"] == 3)
+    assert linked["reasons"]
+    assert client.get("/users/404/recommendations", params={"strategy": "graph"}).status_code == 404
+
+
+def test_graph_neighborhood_has_valid_edges_and_bounded_requests(client) -> None:
+    response = client.get("/products/1/graph", params={"top_k": 2})
+    assert response.status_code == 200
+    graph = response.json()
+    ids = {node["id"] for node in graph["nodes"]}
+    assert "product:1" in ids
+    assert graph["edges"]
+    assert all(edge["source"] in ids and edge["target"] in ids for edge in graph["edges"])
+    assert client.get("/products/404/graph").status_code == 404
+    assert client.get("/products/1/graph", params={"top_k": 51}).status_code == 422
+
+
+@pytest.mark.parametrize("kind", ["complement", "alternative"])
+def test_related_products_validate_products_and_relation(client, kind) -> None:
+    response = client.get("/products/1/related", params={"kind": kind})
+    assert response.status_code == 200
+    assert all(hit["product"]["product_id"] != 1 for hit in response.json())
+    assert client.get("/products/404/related", params={"kind": kind}).status_code == 404
+    assert client.get("/products/1/related", params={"kind": "anything"}).status_code == 422
 
 
 def test_chat_is_503_without_llm(client) -> None:

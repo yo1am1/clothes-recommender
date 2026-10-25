@@ -2,6 +2,7 @@
 .venv
 .qdrant
 .env
+data/
 .claude
 **/__pycache__
 .pytest_cache
