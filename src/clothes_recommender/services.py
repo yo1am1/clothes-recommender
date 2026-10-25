@@ -43,7 +43,9 @@ class Services:
 
     @cached_property
     def demo_customers(self) -> list[DemoCustomer]:
-        return select_demo_customers(self.customers, self.catalog, self.graph)
+        return select_demo_customers(
+            self.customers, self.catalog, self.graph, self.collaborative, self.hybrid
+        )
 
 
 def hybrid_recommender(

@@ -121,6 +121,9 @@ def create_app(services: Services | None = None) -> FastAPI:
             yield
             return
         app.state.services = build_services(get_settings())
+        # Choosing the examples runs the recommenders for many customers (~10 s on the default
+        # sample); do it before serving so the UI's first page load stays fast.
+        _ = app.state.services.demo_customers
         yield
         app.state.services.store.close()
 

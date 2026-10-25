@@ -1,254 +1,203 @@
-from collections import Counter
-from dataclasses import asdict
+from datetime import date, timedelta
 
 import pandas as pd
 import pytest
 
 from clothes_recommender.catalog import CustomerData, ProductCatalog
-from clothes_recommender.demo import DemoCustomer, select_demo_customers
-from clothes_recommender.domain import Product
+from clothes_recommender.demo import select_demo_customers
+from clothes_recommender.domain import Product, ScoredProduct
+from clothes_recommender.recommenders.collaborative import SimilarUser
 from clothes_recommender.recommenders.graph import GraphRecommender
 from clothes_recommender.recommenders.popularity import PopularityRecommender
 
+GOOD_SIMILARITY = 0.3
 
-def product(pid: int, **changes) -> dict:
-    return Product.model_validate(
-        {
-            "product_id": pid,
-            "name": f"Product {pid}",
-            "product_type": "T-shirt",
-            "product_group": "Garment Upper body",
-            "section": "Ladieswear",
-            "colour": "Black",
-            "description": "",
-            "price": 10,
-        }
-        | changes
+
+def product(pid: int, section: str = "Ladieswear", group: str = "Garment Upper body") -> dict:
+    return Product(
+        product_id=pid,
+        name=f"Product {pid}",
+        product_type=f"Type {group}",
+        product_group=group,
+        section=section,
+        colour="Black",
+        description="",
+        price=10,
     ).model_dump()
 
 
-@pytest.fixture
-def make_data():
-    def build(products, purchases=(), users=(), edges=()):
-        catalog = ProductCatalog(pd.DataFrame(products, columns=list(product(1))))
+class FakeCollaborative:
+    def __init__(self, similarity: dict[int, float]) -> None:
+        self._similarity = similarity
+
+    def similar_users(self, user_id: int, top_k: int = 5) -> list[SimilarUser]:
+        value = self._similarity.get(user_id, GOOD_SIMILARITY)
+        return [SimilarUser(user_id=0, similarity=value)] if value > 0 else []
+
+
+class FakeHybrid:
+    def __init__(self, lists: dict[int, list[int]]) -> None:
+        self._lists = lists
+        self.calls: list[int] = []
+
+    def recommend(self, user_id: int, top_k: int = 10) -> list[ScoredProduct]:
+        self.calls.append(user_id)
+        return [ScoredProduct(pid, 1.0) for pid in self._lists[user_id][:top_k]]
+
+
+class Shop:
+    """Customers with six purchases each, a recommendation pool per section, a linked focus."""
+
+    def __init__(self) -> None:
+        self.products: dict[int, dict] = {}
+        self.purchases: list[tuple[int, int, date]] = []
+        self.users: list[int] = []
+        self.links: list[tuple[int, int, int, float]] = []
+        self.hybrid: dict[int, list[int]] = {}
+        self.similarity: dict[int, float] = {}
+        self._next_id = 1000
+
+    def _new(self, section: str, group: str) -> int:
+        self._next_id += 1
+        self.products[self._next_id] = product(self._next_id, section, group)
+        return self._next_id
+
+    def customer(
+        self,
+        user_id: int,
+        sections: list[str],
+        group: str = "Garment Upper body",
+        linked: bool = True,
+        recommend_section: str | None = None,
+        recommend_group: str | None = None,
+    ) -> list[int]:
+        """`sections` lists the section of each purchase (oldest first)."""
+        self.users.append(user_id)
+        bought = [self._new(section, group) for section in sections]
+        for day, pid in enumerate(bought):
+            self.purchases.append((user_id, pid, date(2020, 9, 1) + timedelta(days=day)))
+        if linked:
+            complement = self._new(sections[-1], "Accessories")
+            self.links.append((bought[-1], complement, 3, 2.0))
+        self.hybrid[user_id] = [
+            self._new(recommend_section or sections[-1], recommend_group or group)
+            for _ in range(10)
+        ]
+        return bought
+
+    def select(self, limit: int = 10):
+        catalog = ProductCatalog(pd.DataFrame(self.products.values()))
         customers = CustomerData(
-            pd.DataFrame({"user_id": list(users), "age": 30}),
-            pd.DataFrame(
-                [(user, pid, "2020-09-22") for user, pid in purchases],
-                columns=["user_id", "product_id", "purchase_date"],
-            ),
+            pd.DataFrame({"user_id": self.users, "age": 30}),
+            pd.DataFrame(self.purchases, columns=["user_id", "product_id", "purchase_date"]),
         )
         graph = GraphRecommender(
             customers,
             catalog,
             PopularityRecommender(customers),
-            pd.DataFrame(edges, columns=["product_id", "other_id", "count", "lift"]),
+            pd.DataFrame(self.links, columns=["product_id", "other_id", "count", "lift"]),
         )
-        return customers, catalog, graph
-
-    return build
-
-
-def test_ten_unique_real_customers_are_deterministic_diverse_and_all_users_are_retained(make_data):
-    products = [
-        product(200 + i, product_type=f"Type {i}", product_group=f"Group {i % 3}")
-        for i in range(12)
-    ] + [product(900, product_group="Accessories")]
-    users = [100 + i for i in range(12)] + [9999]
-    purchases = [(100 + i, 200 + i) for i in range(12)]
-    edges = [(200 + i, 900, 2, 1) for i in range(12)]
-    customers, catalog, graph = make_data(products, purchases, users, edges)
-    before = customers.purchases.copy(deep=True)
-    catalog_before = list(catalog)
-
-    selected = select_demo_customers(customers, catalog, graph)
-    assert len(selected) == len({item.user_id for item in selected}) == 10
-    assert all(isinstance(item, DemoCustomer) for item in selected)
-    assert len({catalog.get(item.focus_product_id).product_type for item in selected}) == 10
-    assert len({catalog.get(item.focus_product_id).product_group for item in selected[:3]}) == 3
-    for item in selected:
-        assert item.focus_product_id in {
-            p.product_id for p in customers.purchases_for(item.user_id)
-        }
-        assert "co-purchased complements" in item.label
-        assert "Purchase records: 1; distinct products: 1." in item.description
-        assert graph.related(item.focus_product_id, "complement", top_k=1)
-        assert set(asdict(item)) == {"user_id", "label", "description", "focus_product_id"}
-    assert selected == select_demo_customers(customers, catalog, graph)
-    shuffled = make_data(products[::-1], purchases[::-1], users[::-1], edges[::-1])
-    assert selected == select_demo_customers(*shuffled)
-    assert customers.user_ids() == sorted(users)
-    assert customers.get_user(9999) is not None
-    pd.testing.assert_frame_equal(customers.purchases, before)
-    assert list(catalog) == catalog_before
+        self.fake_hybrid = FakeHybrid(self.hybrid)
+        return select_demo_customers(
+            customers,
+            catalog,
+            graph,
+            FakeCollaborative(self.similarity),
+            self.fake_hybrid,
+            limit,
+        )
 
 
-def test_evidence_kinds_are_varied_and_purchase_graph_evidence_comes_first(make_data):
-    category = "Apparel & Accessories > Clothing > Shirts & Tops"
-    products = (
-        [
-            product(
-                100 + i,
-                product_type=f"Type {i}",
-                product_group=f"Group {i}",
-                shopify_category=category,
-                shopify_attributes={"color": "Black", "pattern": "Solid"},
-            )
-            for i in range(12)
-        ]
-        + [
-            product(200 + i, product_type=f"Type {i}", price=20, shopify_category=category)
-            for i in range(12)
-        ]
-        + [
-            product(900),
-            product(901, product_group="Shoes"),
-            product(910),
-            product(911),
-            product(800),
-        ]
-    )
-    users = [*range(1, 13), 20, 30, 31, 9999]
-    customers, catalog, graph = make_data(
-        products,
-        purchases=[(i + 1, 100 + i) for i in range(12)] + [(20, 800), (30, 900), (31, 910)],
-        users=users,
-        edges=[(900, 901, 2, 1), (910, 911, 2, 1)],
-    )
-    selected = select_demo_customers(customers, catalog, graph)
-    assert len(selected) == len({item.user_id for item in selected}) == 10
-    assert {item.label.split(": ", 1)[1] for item in selected[:3]} == {
-        "co-purchased complements",
-        "co-purchase links",
-        "higher-priced alternatives",
-    }
-    assert selected[0].label.endswith(("co-purchased complements", "co-purchase links"))
-    assert select_demo_customers(customers, catalog, graph, limit=1) == selected[:1]
-    assert all(item.user_id != 20 for item in selected)
-    assert customers.user_ids() == sorted(users)
+def ids(examples) -> list[int]:
+    return [example.user_id for example in examples]
 
 
-def test_focus_prefers_real_links_over_richer_metadata_and_counts_actual_history(make_data):
-    data = make_data(
-        [
-            product(
-                1,
-                shopify_category="Apparel & Accessories > Clothing > Shirts & Tops",
-                shopify_attributes={"color": "Black", "pattern": "Solid"},
-            ),
-            product(9),
-            product(10),
-        ],
-        purchases=[(11, 1), (11, 9), (11, 9)],
-        users=[11],
-        edges=[(9, 10, 2, 1)],
-    )
-    selected = select_demo_customers(*data)
-    assert selected[0].focus_product_id == 9
-    assert selected[0].label == "T-shirt: co-purchase links"
-    assert "Purchase records: 3; distinct products: 2." in selected[0].description
-
-
-def test_validated_alternatives_are_informative_without_co_purchase_edges(make_data):
-    category = "Apparel & Accessories > Clothing > Shirts & Tops"
-    data = make_data(
-        [
-            product(1),
-            product(2, shopify_category=category),
-            product(3, price=20, shopify_category=category),
-        ],
-        purchases=[(7, 1), (7, 2)],
-        users=[7],
-    )
-    selected = select_demo_customers(*data)
-    assert selected[0].focus_product_id == 2
-    assert selected[0].label == "T-shirt: higher-priced alternatives"
-    assert data[2].related(2, "alternative", top_k=1)
-
-
-def test_metadata_richness_breaks_ties_without_inventing_evidence(make_data):
-    data = make_data(
-        [product(1), product(2, shopify_attributes={"color": "Black", "pattern": "Solid"})],
-        purchases=[(5, 1), (5, 2)],
-        users=[5],
-    )
-    selected = select_demo_customers(*data)
-    assert selected[0].focus_product_id == 2
-    assert selected[0].label == "T-shirt: product metadata"
-    assert "co-purchase" not in selected[0].description
-    assert "alternative" not in selected[0].description
-
-
-def test_diversity_can_choose_another_focus_from_the_same_users_history(make_data):
-    data = make_data(
-        [
-            product(1, shopify_attributes={"color": "Black"}),
-            product(2, product_type="Dress", product_group="Garment Full body"),
-        ],
-        purchases=[(1, 1), (2, 1), (2, 2)],
-        users=[1, 2],
-    )
-    selected = select_demo_customers(*data)
-    assert [(item.user_id, item.focus_product_id) for item in selected] == [(1, 1), (2, 2)]
-
-
-def test_evidence_is_cached_per_product_and_whole_recommendations_are_never_run(
-    make_data, monkeypatch
-):
-    customers, catalog, graph = make_data(
-        [product(1)], purchases=[(user, 1) for user in range(1, 16)], users=range(1, 16)
-    )
-    calls = Counter()
-    related, neighborhood = graph.related, graph.neighborhood
-
-    def counted_related(pid, kind, top_k):
-        calls[pid, kind] += 1
-        return related(pid, kind, top_k)
-
-    def counted_neighborhood(pid, top_k):
-        calls[pid, "neighborhood"] += 1
-        return neighborhood(pid, top_k)
-
-    def no_recommendations(*args, **kwargs):
-        pytest.fail("Demo curation must not run per-user recommendations")
-
-    monkeypatch.setattr(graph, "related", counted_related)
-    monkeypatch.setattr(graph, "neighborhood", counted_neighborhood)
-    monkeypatch.setattr(graph, "recommend", no_recommendations)
-    assert len(select_demo_customers(customers, catalog, graph)) == 10
-    assert calls == {(1, "complement"): 1, (1, "alternative"): 1, (1, "neighborhood"): 1}
-
-
-def test_fewer_eligible_customers_are_returned_without_removing_other_users(make_data):
-    data = make_data(
-        [product(1), product(2, price=0)],
-        purchases=[(2, 1), (3, 999), (4, 2), (9999, 1)],
-        users=[1, 2, 3, 4],
-    )
-    selected = select_demo_customers(*data)
-    assert [item.user_id for item in selected] == [2]
-    assert selected[0].label == "T-shirt: purchase history"
-    assert data[0].user_ids() == [1, 2, 3, 4]
-
-
-@pytest.mark.parametrize("limit", [0, -1])
-def test_nonpositive_limit_is_empty(make_data, limit):
-    data = make_data([product(1)], purchases=[(1, 1)], users=[1])
-    assert select_demo_customers(*data, limit=limit) == []
-
-
-def test_positive_limit_is_respected(make_data):
-    data = make_data([product(1)], purchases=[(1, 1), (2, 1)], users=[1, 2])
-    assert len(select_demo_customers(*data, limit=1)) == 1
+def test_coherent_customer_with_evidence_is_selected_with_a_readable_label():
+    shop = Shop()
+    bought = shop.customer(1, ["Menswear"] * 6)
+    [example] = shop.select()
+    assert example.user_id == 1
+    assert example.label == "Menswear: Type Garment Upper body"
+    assert example.focus_product_id == bought[-1]  # the purchase with complements
+    assert "6 purchases of 6 products, mostly Menswear" in example.description
+    assert "0.30" in example.description
 
 
 @pytest.mark.parametrize(
-    "products, purchases, users",
+    ("setup", "reason"),
     [
-        ([], [], []),
-        ([product(1)], [], [1]),
-        ([], [(1, 999)], [1]),
+        (lambda s: s.customer(1, ["Ladieswear"] * 5), "too few products"),
+        (lambda s: s.customer(1, ["Ladieswear"] * 31), "too many products"),
+        (lambda s: s.customer(1, ["Ladieswear"] * 4 + ["Menswear"] * 2), "mixed sections"),
+        (lambda s: s.customer(1, ["Ladieswear"] * 6, linked=False), "no complements"),
+        (
+            lambda s: s.customer(1, ["Ladieswear"] * 6, recommend_section="Menswear"),
+            "recommends another section",
+        ),
+        (
+            lambda s: s.customer(1, ["Ladieswear"] * 6, recommend_group="Shoes"),
+            "misses the main group",
+        ),
     ],
 )
-def test_empty_or_no_usable_histories(make_data, products, purchases, users):
-    assert select_demo_customers(*make_data(products, purchases, users)) == []
+def test_customers_failing_a_criterion_are_skipped(setup, reason):
+    shop = Shop()
+    setup(shop)
+    assert shop.select() == [], reason
+
+
+def test_customers_without_a_similar_enough_shopper_are_skipped():
+    shop = Shop()
+    shop.customer(1, ["Ladieswear"] * 6)
+    shop.similarity[1] = 0.05
+    assert shop.select() == []
+
+
+def test_short_hybrid_lists_are_skipped():
+    shop = Shop()
+    shop.customer(1, ["Ladieswear"] * 6)
+    shop.hybrid[1] = shop.hybrid[1][:9]
+    assert shop.select() == []
+
+
+def test_mostly_one_section_is_coherent_enough():
+    shop = Shop()
+    # 5 of 6 Ladieswear = 83%; recommendations may use either section bought.
+    shop.customer(1, ["Menswear"] + ["Ladieswear"] * 5)
+    assert ids(shop.select()) == [1]
+
+
+def test_sections_take_turns_and_limit_is_respected():
+    shop = Shop()
+    for user in (1, 2, 3):
+        shop.customer(user, ["Ladieswear"] * 6)
+    shop.customer(4, ["Menswear"] * 6)
+    shop.customer(5, ["Baby/Children"] * 6)
+    # Ladieswear has the most candidates, so it goes first in every round; the one-candidate
+    # sections follow alphabetically.
+    assert ids(shop.select()) == [1, 5, 4, 2, 3]
+    assert ids(shop.select(limit=2)) == [1, 5]
+
+
+def test_a_new_main_group_is_preferred_within_a_section():
+    shop = Shop()
+    shop.customer(1, ["Ladieswear"] * 7, group="Garment Upper body")
+    shop.customer(2, ["Ladieswear"] * 6, group="Garment Upper body")
+    shop.customer(3, ["Ladieswear"] * 6, group="Garment Full body")
+    # 1 has the longest history; then 3 brings a new group before 2 repeats one.
+    assert ids(shop.select()) == [1, 3, 2]
+
+
+def test_selection_stops_checking_once_the_limit_is_reached():
+    shop = Shop()
+    for user in range(1, 30):
+        shop.customer(user, ["Ladieswear"] * 6)
+    assert len(shop.select(limit=3)) == 3
+    assert len(shop.fake_hybrid.calls) == 3
+
+
+@pytest.mark.parametrize("limit", [0, -1])
+def test_nonpositive_limit_is_empty(limit):
+    shop = Shop()
+    shop.customer(1, ["Ladieswear"] * 6)
+    assert shop.select(limit) == []

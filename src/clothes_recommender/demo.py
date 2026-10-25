@@ -1,10 +1,31 @@
-"""Choose real, varied customer examples without changing the customer dataset."""
+"""Choose real, varied customer examples without changing the customer dataset.
 
-import math
+An example must be a customer whose recommendations can be judged at a glance:
+- a coherent history: 6-30 distinct products, at least 80% of them from one section;
+- personal evidence in every strategy: a similar shopper for collaborative filtering and a
+  purchased product with co-purchased complements for the knowledge graph;
+- a hybrid list that stays in the sections the customer buys from and covers their main
+  product group.
+
+The checks only read the recommenders' output; nothing is tuned for the examples, and every
+other customer stays available. The Evaluation tab scores all eligible customers instead.
+"""
+
+from collections import Counter, defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from clothes_recommender.catalog import CustomerData, ProductCatalog
+from clothes_recommender.domain import Product
+from clothes_recommender.recommenders.base import Recommender
+from clothes_recommender.recommenders.collaborative import CollaborativeRecommender
 from clothes_recommender.recommenders.graph import GraphRecommender
+
+MIN_DISTINCT_PRODUCTS = 6
+MAX_DISTINCT_PRODUCTS = 30
+MIN_SECTION_SHARE = 0.8
+MIN_NEIGHBOUR_SIMILARITY = 0.1
+CHECKED_RECOMMENDATIONS = 10
 
 
 @dataclass
@@ -15,89 +36,122 @@ class DemoCustomer:
     focus_product_id: int
 
 
+@dataclass(frozen=True)
+class _Candidate:
+    user_id: int
+    section: str
+    main_group: str
+    history: list[Product]  # distinct products, most recent purchase first
+    records: int
+
+
 def select_demo_customers(
     customers: CustomerData,
     catalog: ProductCatalog,
     graph: GraphRecommender,
+    collaborative: CollaborativeRecommender,
+    hybrid: Recommender,
     limit: int = 10,
 ) -> list[DemoCustomer]:
-    """Prefer supported, varied evidence, then novel groups/types/products and metadata."""
+    """Up to `limit` examples, round-robin over sections so each audience is represented."""
     if limit <= 0:
         return []
-    products = {
-        p.product_id: p
-        for p in catalog
-        if p.name.strip() and p.product_type.strip() and math.isfinite(p.price) and p.price > 0
-    }
-    evidence: dict[int, tuple[int, int, str]] = {}
-    histories: dict[int, tuple[int, int]] = {}
-    candidates: list[tuple[int, int]] = []
-    for user_id in customers.user_ids():
-        history = customers.purchases_for(user_id)
-        purchased = {purchase.product_id for purchase in history}
-        histories[user_id] = (len(history), len(purchased))
-        for pid in sorted(purchased & products.keys()):
-            if pid not in evidence:
-                product = products[pid]
-                richness = sum(bool(value.strip()) for value in product.shopify_attributes.values())
-                richness += bool(
-                    product.shopify_category.strip()
-                    and product.shopify_category.strip() != "Uncategorized"
-                )
-                if graph.related(pid, "complement", top_k=1):
-                    strength, detail = 3, "co-purchased complements"
-                elif any(
-                    edge["relation"] == "co_purchased"
-                    for edge in graph.neighborhood(pid, top_k=len(product.shopify_attributes) + 3)[
-                        "edges"
-                    ]
-                ):
-                    strength, detail = 2, "co-purchase links"
-                elif graph.related(pid, "alternative", top_k=1):
-                    strength, detail = 1, "higher-priced alternatives"
-                else:
-                    strength = 0
-                    detail = "product metadata" if richness else "purchase history"
-                evidence[pid] = (strength, richness, detail)
-            candidates.append((user_id, pid))
+    by_section: dict[str, list[_Candidate]] = defaultdict(list)
+    for candidate in _coherent_customers(customers, catalog):
+        by_section[candidate.section].append(candidate)
+    # Most-populated sections first, so their second examples come before thin sections run dry.
+    sections = sorted(by_section, key=lambda s: (-len(by_section[s]), s))
 
     selected: list[DemoCustomer] = []
-    seen_evidence: set[str] = set()
-    seen_products: set[int] = set()
-    seen_types: set[str] = set()
-    seen_groups: set[str] = set()
-    while candidates and len(selected) < limit:
-        user_id, pid = max(
-            candidates,
-            key=lambda pair: (
-                evidence[pair[1]][0] > 0,
-                evidence[pair[1]][2] not in seen_evidence,
-                evidence[pair[1]][0],
-                products[pair[1]].product_group not in seen_groups,
-                products[pair[1]].product_type not in seen_types,
-                pair[1] not in seen_products,
-                evidence[pair[1]][1],
-                -pair[0],
-                -pair[1],
-            ),
-        )
-        product = products[pid]
-        detail = evidence[pid][2]
-        records, distinct = histories[user_id]
-        selected.append(
-            DemoCustomer(
+    used_groups: dict[str, set[str]] = defaultdict(set)
+    progress = True
+    while len(selected) < limit and progress:
+        progress = False
+        for section in sections:
+            if len(selected) == limit:
+                break
+            # Prefer a main product group this section has not shown yet.
+            queue = sorted(
+                by_section[section],
+                key=lambda c: (c.main_group in used_groups[section], -len(c.history), c.user_id),
+            )
+            for candidate in queue:
+                by_section[section].remove(candidate)
+                example = _check(candidate, graph, collaborative, hybrid, catalog)
+                if example is not None:
+                    selected.append(example)
+                    used_groups[section].add(candidate.main_group)
+                    progress = True
+                    break
+    return selected
+
+
+def _coherent_customers(customers: CustomerData, catalog: ProductCatalog) -> list[_Candidate]:
+    candidates = []
+    for user_id in customers.user_ids():
+        purchases = customers.purchases_for(user_id)
+        history = list(dict.fromkeys(p.product_id for p in purchases))
+        if not MIN_DISTINCT_PRODUCTS <= len(history) <= MAX_DISTINCT_PRODUCTS:
+            continue
+        products = catalog.get_many(history)
+        if len(products) != len(history):
+            continue
+        section, count = Counter(p.section for p in products).most_common(1)[0]
+        if count / len(products) < MIN_SECTION_SHARE:
+            continue
+        candidates.append(
+            _Candidate(
                 user_id=user_id,
-                label=f"{product.product_type}: {detail}",
-                description=(
-                    f"Inspect {detail} for {product.name}. "
-                    f"Purchase records: {records}; distinct products: {distinct}."
-                ),
-                focus_product_id=pid,
+                section=section,
+                main_group=_ranked(p.product_group for p in products)[0],
+                history=products,
+                records=len(purchases),
             )
         )
-        seen_evidence.add(detail)
-        seen_products.add(pid)
-        seen_types.add(product.product_type)
-        seen_groups.add(product.product_group)
-        candidates = [pair for pair in candidates if pair[0] != user_id]
-    return selected
+    return candidates
+
+
+def _check(
+    candidate: _Candidate,
+    graph: GraphRecommender,
+    collaborative: CollaborativeRecommender,
+    hybrid: Recommender,
+    catalog: ProductCatalog,
+) -> DemoCustomer | None:
+    neighbours = collaborative.similar_users(candidate.user_id, top_k=1)
+    if not neighbours or neighbours[0].similarity < MIN_NEIGHBOUR_SIMILARITY:
+        return None
+    focus = next(
+        (p for p in candidate.history if graph.related(p.product_id, "complement", top_k=1)),
+        None,
+    )
+    if focus is None:
+        return None
+    recommended = catalog.get_many(
+        item.product_id for item in hybrid.recommend(candidate.user_id, CHECKED_RECOMMENDATIONS)
+    )
+    sections = {p.section for p in candidate.history}
+    if (
+        len(recommended) < CHECKED_RECOMMENDATIONS
+        or any(p.section not in sections for p in recommended)
+        or all(p.product_group != candidate.main_group for p in recommended)
+    ):
+        return None
+
+    types = _ranked(p.product_type for p in candidate.history)[:3]
+    return DemoCustomer(
+        user_id=candidate.user_id,
+        label=f"{candidate.section}: {', '.join(types)}",
+        description=(
+            f"{candidate.records} purchases of {len(candidate.history)} products, mostly "
+            f"{candidate.section}. Most similar shopper: {neighbours[0].similarity:.2f} "
+            f"cosine similarity. {focus.name} has co-purchased complements to explore."
+        ),
+        focus_product_id=focus.product_id,
+    )
+
+
+def _ranked(values: Iterable[str]) -> list[str]:
+    """Distinct values, most frequent first; ties alphabetical so results are deterministic."""
+    counts = Counter(values)
+    return sorted(counts, key=lambda value: (-counts[value], value))
