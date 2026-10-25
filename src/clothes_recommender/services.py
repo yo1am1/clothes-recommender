@@ -35,6 +35,9 @@ class Services:
     images_dir: Path
     # None when no LLM is configured: every other feature still works without an API key.
     assistant: ShoppingAssistant | None
+    # Optional demo assets; the endpoints that serve them answer 404 when they are missing.
+    query_photos_dir: Path | None = None
+    evaluation_path: Path | None = None
 
     @cached_property
     def demo_customers(self) -> list[DemoCustomer]:
@@ -73,4 +76,6 @@ def build_services(settings: Settings) -> Services:
         graph=GraphRecommender(customers, catalog, popularity, links),
         images_dir=settings.images_dir,
         assistant=assistant,
+        query_photos_dir=settings.query_photos_dir,
+        evaluation_path=settings.evaluation_path,
     )

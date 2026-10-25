@@ -4,6 +4,7 @@ Run with: uv run uvicorn clothes_recommender.api:create_app --factory
 """
 
 import io
+import json
 import logging
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
@@ -19,7 +20,7 @@ from pydantic import BaseModel, Field
 from clothes_recommender.chat.assistant import AssistantReply, ChatTurn
 from clothes_recommender.config import get_settings
 from clothes_recommender.demo import DemoCustomer
-from clothes_recommender.domain import Product, ScoredProduct, User
+from clothes_recommender.domain import Product, ProductFilter, ScoredProduct, User
 from clothes_recommender.recommenders.base import Recommender, UnknownUserError
 from clothes_recommender.recommenders.collaborative import SimilarUser
 from clothes_recommender.services import Services, build_services
@@ -45,6 +46,16 @@ class ProductHit(BaseModel):
 class TextSearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=300)
     top_k: int = Field(default=10, ge=1, le=MAX_TOP_K)
+    section: str | None = Field(default=None, description="Only this section, e.g. Menswear.")
+
+
+class QueryPhoto(BaseModel):
+    """A photo of an H&M garment outside the catalog, to try image search with."""
+
+    photo_id: int
+    name: str
+    product_type: str
+    colour: str
 
 
 class PurchasedProduct(BaseModel):
@@ -165,14 +176,52 @@ def create_app(services: Services | None = None) -> FastAPI:
             hit.reasons = [reason]
         return hits
 
+    @app.get("/products/{product_id}/similar")
+    def similar_products(
+        product_id: int, services: ServicesDep, top_k: TopK = 10
+    ) -> list[ProductHit]:
+        """Products whose photos look most like this one's (CLIP item-to-item)."""
+        get_product(product_id, services)
+        similar = services.search.similar_to(product_id, top_k)
+        if similar is None:
+            raise HTTPException(
+                status_code=404, detail=f"Product {product_id} has no photo in the image index."
+            )
+        return _to_hits(services, similar)
+
     @app.get("/products/{product_id}/graph")
     def product_graph(product_id: int, services: ServicesDep, top_k: TopK = 12) -> dict:
         get_product(product_id, services)
         return services.graph.neighborhood(product_id, top_k)
 
+    @app.get("/sections")
+    def sections(services: ServicesDep) -> list[str]:
+        return services.catalog.distinct("section")
+
     @app.post("/search/text")
     def search_by_text(request: TextSearchRequest, services: ServicesDep) -> list[ProductHit]:
-        return _to_hits(services, services.search.by_text(request.query, request.top_k))
+        product_filter = ProductFilter(sections=(request.section,) if request.section else ())
+        return _to_hits(
+            services, services.search.by_text(request.query, request.top_k, product_filter)
+        )
+
+    @app.get("/search/examples")
+    def query_photos(services: ServicesDep) -> list[QueryPhoto]:
+        """Example query photos; empty until scripts.fetch_query_photos has run."""
+        if services.query_photos_dir is None:
+            return []
+        index = services.query_photos_dir / "query_photos.json"
+        if not index.is_file():
+            return []
+        return [QueryPhoto.model_validate(row) for row in json.loads(index.read_text())]
+
+    @app.get("/search/examples/{photo_id}/image", response_class=FileResponse)
+    def query_photo_image(photo_id: int, services: ServicesDep) -> FileResponse:
+        # photo_id is an int, so the path cannot escape query_photos_dir.
+        path = services.query_photos_dir / f"{photo_id}.jpg" if services.query_photos_dir else None
+        if path is None or not path.is_file():
+            raise HTTPException(status_code=404, detail=f"No example photo {photo_id}.")
+        return FileResponse(path, media_type="image/jpeg")
 
     @app.post("/search/image")
     def search_by_image(
@@ -221,6 +270,19 @@ def create_app(services: Services | None = None) -> FastAPI:
     @app.get("/users/{user_id}/similar")
     def similar_users(user_id: int, services: ServicesDep, top_k: TopK = 5) -> list[SimilarUser]:
         return services.collaborative.similar_users(user_id, top_k)
+
+    @app.get("/evaluation")
+    def evaluation(services: ServicesDep) -> dict:
+        """Offline evaluation results written by `scripts.evaluate --output`."""
+        path = services.evaluation_path
+        if path is None or not path.is_file():
+            raise HTTPException(
+                status_code=404,
+                detail="No evaluation results yet: run "
+                "`uv run python -m scripts.evaluate --qdrant-path .qdrant --output "
+                "data/evaluation.json`.",
+            )
+        return json.loads(path.read_text())
 
     @app.post("/chat")
     def chat(request: ChatRequest, services: ServicesDep) -> AssistantReply:

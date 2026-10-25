@@ -1,5 +1,6 @@
 import dataclasses
 import io
+import json
 from collections.abc import Iterator
 from datetime import date
 
@@ -9,7 +10,7 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from clothes_recommender.api import create_app
-from clothes_recommender.catalog import CustomerData
+from clothes_recommender.catalog import CustomerData, ProductCatalog
 from clothes_recommender.chat.assistant import AssistantReply
 from clothes_recommender.chat.intent import SearchIntent
 from clothes_recommender.recommenders.collaborative import CollaborativeRecommender
@@ -192,3 +193,55 @@ def test_chat_maps_provider_failure_to_502(services) -> None:
         response = client.post("/chat", json={"message": "hi"})
         assert response.status_code == 502
         assert "gateway down" not in response.json()["detail"]
+
+
+def test_text_search_can_be_limited_to_a_section(client) -> None:
+    assert client.get("/sections").json() == ["Ladieswear", "Menswear", "Sport"]
+    hits = client.post(
+        "/search/text", json={"query": "Floral Summer Dress", "section": "Menswear"}
+    ).json()
+    assert hits and {hit["product"]["section"] for hit in hits} == {"Menswear"}
+
+
+def test_similar_products_exclude_the_product_itself(services, sample_products) -> None:
+    unindexed = sample_products[0].model_copy(update={"product_id": 7})
+    catalog = ProductCatalog(pd.DataFrame([p.model_dump() for p in [*sample_products, unindexed]]))
+    with TestClient(create_app(dataclasses.replace(services, catalog=catalog))) as client:
+        hits = client.get("/products/3/similar", params={"top_k": 3}).json()
+        assert len(hits) == 3
+        assert 3 not in {hit["product"]["product_id"] for hit in hits}
+        assert client.get("/products/404/similar").status_code == 404
+        response = client.get("/products/7/similar")
+        assert response.status_code == 404
+        assert "image index" in response.json()["detail"]
+
+
+def test_query_photos_are_listed_and_served(services, tmp_path) -> None:
+    photos = tmp_path / "query_photos"
+    photos.mkdir()
+    Image.new("RGB", (4, 6), "blue").save(photos / "900000001.jpg")
+    labels = [
+        {"photo_id": 900000001, "name": "Denim jacket", "product_type": "Jacket", "colour": "Blue"}
+    ]
+    (photos / "query_photos.json").write_text(json.dumps(labels))
+    with TestClient(create_app(dataclasses.replace(services, query_photos_dir=photos))) as client:
+        assert client.get("/search/examples").json() == labels
+        image = client.get("/search/examples/900000001/image")
+        assert image.status_code == 200
+        assert image.headers["content-type"] == "image/jpeg"
+        assert client.get("/search/examples/1/image").status_code == 404
+
+
+def test_query_photos_are_empty_until_fetched(client) -> None:
+    assert client.get("/search/examples").json() == []
+    assert client.get("/search/examples/1/image").status_code == 404
+
+
+def test_evaluation_is_served_when_present(services, tmp_path) -> None:
+    path = tmp_path / "evaluation.json"
+    with TestClient(create_app(dataclasses.replace(services, evaluation_path=path))) as client:
+        missing = client.get("/evaluation")
+        assert missing.status_code == 404
+        assert "scripts.evaluate" in missing.json()["detail"]
+        path.write_text(json.dumps({"top_k": 12, "results": {}}))
+        assert client.get("/evaluation").json() == {"top_k": 12, "results": {}}

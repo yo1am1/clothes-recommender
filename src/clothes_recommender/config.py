@@ -59,6 +59,15 @@ class Settings(BaseSettings):
         return self.data_dir / "images"
 
     @property
+    def query_photos_dir(self) -> Path:
+        """Photos of garments outside the catalog, for trying image search."""
+        return self.data_dir / "query_photos"
+
+    @property
+    def evaluation_path(self) -> Path:
+        return self.data_dir / "evaluation.json"
+
+    @property
     def llm_configured(self) -> bool:
         return self.llm_model is not None
 

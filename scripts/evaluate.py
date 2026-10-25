@@ -1,6 +1,9 @@
 """Evaluate prepared purchases with a global last-seven-days holdout; print JSON.
 
 Usage: uv run python -m scripts.evaluate --data-dir data [--qdrant-path .qdrant]
+    [--output data/evaluation.json]
+
+With --output the JSON is also saved; the API serves that file at GET /evaluation.
 """
 
 import argparse
@@ -196,12 +199,16 @@ def main(argv: Sequence[str] | None = None) -> None:
     parser.add_argument(
         "--qdrant-path", type=Path, help="Explicit existing compatible local image index"
     )
+    parser.add_argument("--output", type=Path, help="Also write the JSON results to this file")
     args = parser.parse_args(argv)
     try:
         result = evaluate(args.data_dir, args.qdrant_path)
     except (ValueError, FileNotFoundError) as error:
         parser.error(str(error))
-    print(json.dumps(result, indent=2, sort_keys=True, allow_nan=False))
+    text = json.dumps(result, indent=2, sort_keys=True, allow_nan=False)
+    if args.output is not None:
+        args.output.write_text(text + "\n")
+    print(text)
 
 
 if __name__ == "__main__":

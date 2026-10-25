@@ -99,6 +99,13 @@ def test_tiny_cli_prints_reproducible_json(prepared_evaluation, capsys):
     assert result["sample_scope"]["holdout_purchases"] == 6
 
 
+def test_cli_output_file_matches_printed_json(prepared_evaluation, capsys, tmp_path):
+    data_dir, _ = prepared_evaluation
+    output = tmp_path / "evaluation.json"
+    evaluate.main(["--data-dir", str(data_dir), "--output", str(output)])
+    assert json.loads(output.read_text()) == json.loads(capsys.readouterr().out)
+
+
 def test_repeat_only_holdout_has_no_novel_map(prepared_evaluation):
     data_dir, _ = prepared_evaluation
     path = data_dir / "purchases.parquet"
