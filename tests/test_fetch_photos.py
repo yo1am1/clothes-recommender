@@ -192,3 +192,18 @@ def test_atomic_write_cleans_temporary_file_on_failure(tmp_path, monkeypatch):
     with pytest.raises(OSError, match="write failed"):
         fetch_photos.atomic_write(tmp_path / "photo.jpg", jpeg())
     assert not list(tmp_path.iterdir())
+
+
+def test_large_download_is_saved_downsized(tmp_path):
+    large = BytesIO()
+    Image.new("RGB", (1166, 1750), "navy").save(large, format="JPEG")
+    content = large.getvalue()
+    with httpx.Client(
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, content=content))
+    ) as client:
+        result = fetch_photos.download_photo(client, 130035001, tmp_path)
+    assert result["sha256"] == hashlib.sha256(content).hexdigest()
+    with Image.open(tmp_path / "130035001.jpg") as photo:
+        assert photo.format == "JPEG"
+        assert photo.width <= fetch_photos.PHOTO_MAX_SIZE[0]
+        assert photo.height == fetch_photos.PHOTO_MAX_SIZE[1]

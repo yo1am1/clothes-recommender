@@ -2,6 +2,7 @@
 
 Usage: uv run python -m scripts.fetch_photos --data-dir data [--workers 4] [--limit 1]
 Re-running skips fully decoded JPEGs. No archive, credentials, or substitutes are used.
+Photos larger than prepare_data.PHOTO_MAX_SIZE are saved downsized, like extracted ones.
 
 Origin: H&M Group / Kaggle Personalized Fashion Recommendations (2022).
 Mirror: einrafh/hnm-fashion-recommendations-data on Hugging Face. Its README maps
@@ -26,6 +27,8 @@ from tempfile import NamedTemporaryFile
 import httpx
 import pandas as pd
 from PIL import Image
+
+from scripts.prepare_data import PHOTO_MAX_SIZE
 
 SOURCE_REPO = "https://huggingface.co/datasets/einrafh/hnm-fashion-recommendations-data"
 SOURCE_REVISION = "acde210b0090be673abdba5f989c48925c856f78"
@@ -54,6 +57,18 @@ def validate_jpeg(source: Path | BytesIO) -> None:
         if image.format != "JPEG":
             raise ValueError("Expected a JPEG photo")
         image.load()
+
+
+def downsized(content: bytes) -> bytes:
+    """Shrink photos larger than PHOTO_MAX_SIZE, matching prepare_data; keep smaller ones."""
+    with Image.open(BytesIO(content)) as image:
+        if image.width <= PHOTO_MAX_SIZE[0] and image.height <= PHOTO_MAX_SIZE[1]:
+            return content
+        photo = image.convert("RGB")
+    photo.thumbnail(PHOTO_MAX_SIZE)
+    output = BytesIO()
+    photo.save(output, format="JPEG", quality=90)
+    return output.getvalue()
 
 
 def atomic_write(path: Path, content: bytes) -> None:
@@ -87,7 +102,8 @@ def download_photo(client: httpx.Client, product_id: int, images_dir: Path) -> d
                     if len(content) > MAX_PHOTO_BYTES:
                         raise ValueError("Photo exceeds the 10 MiB download limit")
             validate_jpeg(BytesIO(content))
-            atomic_write(path, content)
+            # The report describes the mirror's file; the saved copy may be downsized.
+            atomic_write(path, downsized(bytes(content)))
             return {
                 "product_id": product_id,
                 "status": "downloaded",

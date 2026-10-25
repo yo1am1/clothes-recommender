@@ -234,7 +234,7 @@ def test_rejects_invalid_transaction_prices(archive_factory, tmp_path, price) ->
 
 
 def test_rejects_catalog_without_photos(archive_factory, tmp_path) -> None:
-    archive = archive_factory(photos=[])
+    archive = archive_factory(photos=[999999001])  # the archive has photos, none of these
 
     with pytest.raises(ValueError, match="No photos"):
         prepare(archive, tmp_path / "data", weeks=1, customer_count=10, seed=0)
@@ -273,3 +273,27 @@ def test_rejects_missing_transaction_ids(archive_factory, tmp_path, column) -> N
     with pytest.raises(ValueError, match="customer/article IDs"):
         prepare(archive, tmp_path / "data", weeks=1, customer_count=10, seed=0)
     assert not (tmp_path / "data").exists()
+
+
+def test_reads_unzipped_directory_without_photos(archive_factory, tmp_path) -> None:
+    raw = tmp_path / "raw"
+    with zipfile.ZipFile(archive_factory(photos=[])) as archive:
+        archive.extractall(raw)
+    out = tmp_path / "data"
+    prepare(raw, out, weeks=1, customer_count=10, seed=0)
+
+    products = pd.read_parquet(out / "products.parquet")
+    # Photos are fetched later, so no article is dropped for lacking one.
+    assert sorted(products["product_id"]) == sorted(ARTICLES["article_id"])
+    assert not (out / "images").exists()
+
+
+def test_reads_unzipped_directory_with_photos(archive_factory, tmp_path) -> None:
+    raw = tmp_path / "raw"
+    with zipfile.ZipFile(archive_factory()) as archive:
+        archive.extractall(raw)
+    out = tmp_path / "data"
+    prepare(raw, out, weeks=1, customer_count=10, seed=0)
+
+    assert sorted(pd.read_parquet(out / "products.parquet")["product_id"]) == PHOTOS
+    assert sorted(path.stem for path in (out / "images").iterdir()) == [str(p) for p in PHOTOS]

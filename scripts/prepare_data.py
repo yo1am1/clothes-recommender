@@ -6,6 +6,11 @@ Download the archive once (needs a Kaggle account and accepted competition rules
 Then:
     uv run python -m scripts.prepare_data
 
+`--archive` also accepts a directory holding the unzipped CSVs, such as the files of the
+Hugging Face mirror that scripts/fetch_photos.py downloads photos from. Without an
+`images/` folder next to the CSVs, photos are not checked or extracted here: run
+`scripts.fetch_photos` afterwards.
+
 Keeps the most recent weeks of transactions, samples active customers, and writes
 products/users/purchases parquet files plus downsized photos of every product they bought.
 Co-purchase links between those products are counted over all shoppers, not just the
@@ -16,9 +21,10 @@ import argparse
 import json
 import logging
 import zipfile
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import date, timedelta
 from pathlib import Path
+from typing import IO
 
 import numpy as np
 import pandas as pd
@@ -52,7 +58,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--archive",
         type=Path,
         default=Path("data/raw/h-and-m-personalized-fashion-recommendations.zip"),
-        help="Kaggle competition zip (the download command above writes it here).",
+        help="Kaggle competition zip (the download command above writes it here), "
+        "or a directory with the unzipped CSVs.",
     )
     parser.add_argument("--weeks", type=int, default=12, help="Weeks of transactions to keep.")
     parser.add_argument("--customers", type=int, default=5000, help="Customers to sample.")
@@ -60,7 +67,36 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def read_recent_transactions(archive: zipfile.ZipFile, since: date) -> pd.DataFrame:
+class RawSource:
+    """The Kaggle zip, or a directory with the same layout (CSVs plus optional images/)."""
+
+    def __init__(self, path: Path) -> None:
+        self._dir = path if path.is_dir() else None
+        self._zip = None if self._dir else zipfile.ZipFile(path)
+        self.has_photos = (
+            (self._dir / "images").is_dir()
+            if self._dir
+            else any(name.startswith("images/") for name in self._zip.namelist())
+        )
+
+    def __enter__(self) -> "RawSource":
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        if self._zip is not None:
+            self._zip.close()
+
+    def open(self, member: str) -> IO[bytes]:
+        return (self._dir / member).open("rb") if self._dir else self._zip.open(member)
+
+    def members(self, names: Iterable[str]) -> set[str]:
+        """The subset of `names` present in the source."""
+        if self._dir:
+            return {name for name in names if (self._dir / name).is_file()}
+        return set(names) & set(self._zip.namelist())
+
+
+def read_recent_transactions(archive: RawSource, since: date) -> pd.DataFrame:
     """Stream the 31M-row transactions file and keep rows from `since` onwards."""
     options = csv.ConvertOptions(
         include_columns=["t_dat", "customer_id", "article_id", "price"],
@@ -128,7 +164,7 @@ def photo_member(article_id: int) -> str:
     return f"images/{padded[:3]}/{padded}.jpg"
 
 
-def save_photo(archive: zipfile.ZipFile, article_id: int, images_dir: Path) -> None:
+def save_photo(archive: RawSource, article_id: int, images_dir: Path) -> None:
     with archive.open(photo_member(article_id)) as raw, Image.open(raw) as image:
         photo = image.convert("RGB")
         photo.thumbnail(PHOTO_MAX_SIZE)
@@ -141,7 +177,7 @@ def prepare(archive_path: Path, data_dir: Path, weeks: int, customer_count: int,
     if seed < 0:
         raise ValueError("seed must be nonnegative")
     images_dir = data_dir / "images"
-    with zipfile.ZipFile(archive_path) as archive:
+    with RawSource(archive_path) as archive:
         since = DATASET_LAST_DAY - timedelta(weeks=weeks) + timedelta(days=1)
         transactions = read_recent_transactions(archive, since)
         logger.info("Kept %d transactions since %s", len(transactions), since)
@@ -160,10 +196,11 @@ def prepare(archive_path: Path, data_dir: Path, weeks: int, customer_count: int,
         bought = transactions[transactions["customer_id"].isin(customer_ids)]
 
         # Some articles have no photo in the archive; they can't be embedded, so they're dropped.
-        photos = set(archive.namelist())
-        article_ids = sorted(
-            a for a in bought["article_id"].unique().tolist() if photo_member(a) in photos
-        )
+        # A source without photos keeps every article; fetch_photos reports the missing ones.
+        article_ids = sorted(bought["article_id"].unique().tolist())
+        if archive.has_photos:
+            photos = archive.members(photo_member(a) for a in article_ids)
+            article_ids = [a for a in article_ids if photo_member(a) in photos]
         if not article_ids:
             raise ValueError("No photos found for products bought by sampled customers")
         bought = bought[bought["article_id"].isin(article_ids)]
@@ -230,10 +267,14 @@ def prepare(archive_path: Path, data_dir: Path, weeks: int, customer_count: int,
         )
 
         links = co_purchases(transactions, article_ids)
-        images_dir.mkdir(parents=True, exist_ok=True)
-        for article_id in tqdm(article_ids, unit="photo", desc="Extracting photos"):
-            save_photo(archive, article_id, images_dir)
+        if archive.has_photos:
+            images_dir.mkdir(parents=True, exist_ok=True)
+            for article_id in tqdm(article_ids, unit="photo", desc="Extracting photos"):
+                save_photo(archive, article_id, images_dir)
+        else:
+            logger.warning("No images/ in %s: run scripts.fetch_photos next.", archive_path)
 
+    data_dir.mkdir(parents=True, exist_ok=True)
     products.to_parquet(data_dir / "products.parquet", index=False)
     users.to_parquet(data_dir / "users.parquet", index=False)
     purchases.to_parquet(data_dir / "purchases.parquet", index=False)
