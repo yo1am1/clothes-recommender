@@ -1,9 +1,11 @@
 """Offline graph explorer checks using real Streamlit controls and mocked HTTP responses."""
 
+import io
 import json
 
 import httpx
 import pytest
+from PIL import Image
 from streamlit.testing.v1 import AppTest
 
 from clothes_recommender import ui
@@ -45,27 +47,34 @@ def run_ui():
     ui.main()
 
 
-def test_image_features_are_coming_soon_without_requests(mocked_api):
+def test_search_tabs_wait_for_a_query_and_missing_photos_have_a_caption(mocked_api):
     calls, _ = mocked_api
     app = AppTest.from_function(run_ui).run()
     assert not app.exception
-    assert any(info.value == "Text → image search is coming soon." for info in app.info)
-    assert any(info.value == "Image search is coming soon." for info in app.info)
-    assert any(caption.value == "Product images coming soon." for caption in app.caption)
-    assert not any(path.endswith("/image") or path.startswith("/search/") for path, _ in calls)
-    assert not app.get("imgs")
-    assert not app.get("file_uploader")
-    assert not app.text_input
+    assert app.text_input(key="text_query").value == ""
+    assert app.get("file_uploader")
+    # Nothing is searched until the shopper types, picks or uploads something.
+    assert not any(path in ("/search/text", "/search/image") for path, _ in calls)
+    assert any(caption.value == "No photo available." for caption in app.caption)
+    # A missing evaluation file is an expected state, not an error.
+    assert any(info.value == "No evaluation results yet." for info in app.info)
 
 
 @pytest.fixture
-def mocked_api(monkeypatch):
+def request_bodies() -> dict[str, list[bytes]]:
+    """Request bodies by path, recorded by mocked_api."""
+    return {}
+
+
+@pytest.fixture
+def mocked_api(monkeypatch, request_bodies):
     calls = []
     overrides = {}
 
     def request(request):
         path = request.url.path
         calls.append((path, dict(request.url.params)))
+        request_bodies.setdefault(path, []).append(request.content)
         if path in overrides:
             return httpx.Response(overrides[path][0], **overrides[path][1])
         if path.endswith("/image"):
@@ -98,6 +107,12 @@ def mocked_api(monkeypatch):
             ]
         elif path.endswith("/graph"):
             payload = GRAPH
+        elif path == "/sections":
+            payload = ["Ladieswear", "Menswear"]
+        elif path == "/search/examples":
+            payload = []
+        elif path == "/evaluation":
+            return httpx.Response(404, json={"detail": "No evaluation results yet."})
         else:
             raise AssertionError(f"Unexpected API call: {request.url}")
         return httpx.Response(200, json=payload)
@@ -133,7 +148,7 @@ def test_graph_explorer_focus_strategy_reasons_and_related_controls(mocked_api):
     relationships = next(frame.value for frame in app.dataframe if "Relationship" in frame.value)
     assert set(relationships["Relationship"]) == {"in_category", "alternative"}
     assert any(text.value == "Shares a purchase connection." for text in app.text)
-    assert any(caption.value == "Product images coming soon." for caption in app.caption)
+    assert any(caption.value == "No photo available." for caption in app.caption)
     assert ("/products/1/graph", {"top_k": "12"}) in calls
 
     strategy = next(widget for widget in app.radio if widget.label == "Strategy")
@@ -551,3 +566,96 @@ def test_profile_history_is_limited_and_does_not_fetch_purchase_photos(mocked_ap
 )
 def test_primary_reason_does_not_repeat_technical_attributes(evidence, expected):
     assert ui.recommendation_reason(evidence) == expected
+
+
+HIT = {"product": RECOMMENDED, "score": 0.31, "reasons": []}
+
+
+def _jpeg() -> bytes:
+    output = io.BytesIO()
+    Image.new("RGB", (6, 9), "navy").save(output, format="JPEG")
+    return output.getvalue()
+
+
+JPEG = _jpeg()
+
+
+def test_text_search_sends_query_and_section(mocked_api, request_bodies):
+    _, overrides = mocked_api
+    overrides["/search/text"] = (200, {"json": [HIT]})
+    app = AppTest.from_function(run_ui).run()
+    app.selectbox[-1].select("Menswear")  # the search tab's section filter
+    app.text_input(key="text_query").input("wool coat").run()
+    assert not app.exception
+    assert any(text.value == "Wool coat" for text in app.text)
+    assert json.loads(request_bodies["/search/text"][-1]) == {
+        "query": "wool coat",
+        "top_k": 9,
+        "section": "Menswear",
+    }
+
+
+def test_example_photo_runs_an_image_search(mocked_api, monkeypatch):
+    calls, overrides = mocked_api
+    example = {"photo_id": 900, "name": "Denim jacket", "product_type": "Jacket", "colour": "Blue"}
+    overrides["/search/examples"] = (200, {"json": [example]})
+    overrides["/search/image"] = (200, {"json": [HIT]})
+    monkeypatch.setattr(ui, "query_photo", lambda photo_id: JPEG)
+    app = AppTest.from_function(run_ui).run()
+    assert not app.exception, app.exception
+    assert not any(path == "/search/image" for path, _ in calls)
+    app.button(key="query_photo_900").click().run()
+    assert not app.exception
+    assert ("/search/image", {"top_k": "9"}) in calls
+    assert any(text.value == "Wool coat" for text in app.text)
+
+
+def test_graph_tab_can_show_visually_similar_products(mocked_api):
+    calls, overrides = mocked_api
+    overrides["/products/1/similar"] = (200, {"json": [HIT]})
+    app = AppTest.from_function(run_ui).run()
+    app.radio(key="graph_related_kind").set_value("similar").run()
+    assert not app.exception
+    assert any(path == "/products/1/similar" for path, _ in calls)
+    assert any("CLIP image index" in caption.value for caption in app.caption)
+
+
+def test_evaluation_tab_compares_strategies_with_popularity(mocked_api):
+    _, overrides = mocked_api
+    metrics = {
+        "popularity": (0.002, 0.004),
+        "graph": (0.006, 0.008),
+    }
+    overrides["/evaluation"] = (
+        200,
+        {
+            "json": {
+                "cutoff": "2020-09-16",
+                "holdout_end": "2020-09-22",
+                "holdout_days": 7,
+                "top_k": 12,
+                "users_evaluated": 321,
+                "content_index": None,
+                "sample_scope": {"prepared_users": 5000, "catalog_products": 14300},
+                "repeat_purchase_limitation": {
+                    "full_holdout_unique_user_items": 900,
+                    "novel_holdout_unique_user_items": 800,
+                },
+                "results": {
+                    name: {
+                        "novel_item_holdout": {"map_at_12": novel, "users_evaluated": 300},
+                        "full_holdout": {"map_at_12": full, "users_evaluated": 321},
+                        "catalog_coverage": 0.1,
+                        "recommendation_fill": 1.0,
+                    }
+                    for name, (novel, full) in metrics.items()
+                },
+            }
+        },
+    )
+    app = AppTest.from_function(run_ui).run()
+    assert not app.exception
+    table = next(frame.value for frame in app.dataframe if "Strategy" in frame.value)
+    assert table["vs popularity"].round(2).tolist() == [1.0, 3.0]
+    assert any("321" in markdown.value for markdown in app.markdown)
+    assert any("without an image index" in caption.value for caption in app.caption)

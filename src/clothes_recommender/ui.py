@@ -12,6 +12,23 @@ import streamlit as st
 from clothes_recommender.config import get_settings
 
 GRID_COLUMNS = 3
+# H&M photos are portrait; a fixed width keeps three cards and their captions on screen.
+PHOTO_WIDTH = 180
+QUERY_PHOTO_COLUMNS = 6
+EXAMPLE_QUERIES = [
+    "black leather biker jacket",
+    "striped summer dress",
+    "kids t-shirt with a dinosaur print",
+    "white sneakers",
+    "floral bikini",
+    "chunky knit cardigan",
+]
+STRATEGY_NAMES = {
+    "popularity": "Popularity (recent best-sellers)",
+    "content": "Content-based (CLIP taste vector)",
+    "collaborative": "Collaborative (similar shoppers)",
+    "graph": "Knowledge graph (purchase connections)",
+}
 
 
 @st.cache_resource
@@ -20,8 +37,11 @@ def api_client() -> httpx.Client:
     return httpx.Client(base_url=get_settings().api_url, timeout=120.0)
 
 
-def call_api(method: str, path: str, **kwargs) -> dict | list | None:
-    """Call the API; on failure show the server's explanation instead of a stack trace."""
+def call_api(method: str, path: str, missing_ok: bool = False, **kwargs) -> dict | list | None:
+    """Call the API; on failure show the server's explanation instead of a stack trace.
+
+    With missing_ok, a 404 is an expected empty state and its explanation is shown as info.
+    """
     try:
         response = api_client().request(method, path, **kwargs)
     except httpx.HTTPError as error:
@@ -32,7 +52,7 @@ def call_api(method: str, path: str, **kwargs) -> dict | list | None:
             detail = response.json().get("detail", response.text)
         except ValueError:  # e.g. a plain-text 500 from a crashed worker
             detail = response.text
-        st.error(detail)
+        (st.info if missing_ok and response.status_code == 404 else st.error)(detail)
         return None
     return response.json()
 
@@ -42,6 +62,15 @@ def product_photo(product_id: int) -> bytes | None:
     # Fetched server-side rather than by URL: in Docker the browser can't resolve the API host.
     try:
         response = api_client().get(f"/products/{product_id}/image")
+    except httpx.HTTPError:
+        return None
+    return response.content if response.is_success else None
+
+
+@st.cache_data(max_entries=100)
+def query_photo(photo_id: int) -> bytes | None:
+    try:
+        response = api_client().get(f"/search/examples/{photo_id}/image")
     except httpx.HTTPError:
         return None
     return response.content if response.is_success else None
@@ -75,7 +104,10 @@ def show_products(
         for offset, product in enumerate(products[start : start + GRID_COLUMNS]):
             i = start + offset
             with columns[offset]:
-                st.caption("Product images coming soon.")
+                if (photo := product_photo(product["product_id"])) is not None:
+                    st.image(photo, width=PHOTO_WIDTH)
+                else:
+                    st.caption("No photo available.")
                 st.text(product["name"])
                 st.markdown(f"**€{product['price']:.2f}**")
                 st.caption(f"{product['product_type']} · {product['colour']}")
@@ -444,16 +476,25 @@ def knowledge_graph_tab() -> None:
     st.subheader(f"Related products · {selected_label}")
     kind = st.radio(
         "Relationship",
-        ["complement", "alternative"],
+        ["complement", "alternative", "similar"],
         horizontal=True,
         key="graph_related_kind",
         format_func={
             "complement": "Bought together",
             "alternative": "Higher-price alternatives",
+            "similar": "Looks similar",
         }.get,
     )
     if kind == "complement":
         st.caption("Co-purchased products from different product groups.")
+    elif kind == "similar":
+        st.caption(
+            "Nearest product photos in the CLIP image index. No purchase data is used, "
+            "so this works for products nobody has bought together yet."
+        )
+        with st.spinner("Finding look-alikes…"):
+            show_hits(call_api("GET", f"/products/{selected_product_id}/similar"))
+        return
     else:
         st.caption(
             "Same specific Shopify category, product type and section, "
@@ -474,12 +515,141 @@ def knowledge_graph_tab() -> None:
         show_hits(related)
 
 
+def use_example_query() -> None:
+    if example := st.session_state.get("text_example"):
+        st.session_state["text_query"] = example
+
+
 def text_search_tab() -> None:
-    st.info("Text → image search is coming soon.")
+    st.caption(
+        "Your words are embedded with CLIP's text encoder and compared with the product "
+        "photos directly. Product names and descriptions are not searched."
+    )
+    st.pills("Try an example", EXAMPLE_QUERIES, key="text_example", on_change=use_example_query)
+    left, right = st.columns([0.7, 0.3])
+    with left:
+        query = st.text_input(
+            "Describe what you are looking for", key="text_query", placeholder=EXAMPLE_QUERIES[0]
+        )
+    with right:
+        sections = call_api("GET", "/sections") or []
+        section = st.selectbox("Section", [None, *sections], format_func=lambda s: s or "All")
+    if query.strip():
+        with st.spinner("Searching photos…"):
+            show_hits(
+                call_api(
+                    "POST", "/search/text", json={"query": query, "top_k": 9, "section": section}
+                )
+            )
+
+
+def choose_query_photo(photo_id: int) -> None:
+    st.session_state["query_photo_id"] = photo_id
 
 
 def image_search_tab() -> None:
-    st.info("Image search is coming soon.")
+    st.caption(
+        "The photo is embedded with CLIP's image encoder and compared with every product photo."
+    )
+    upload = st.file_uploader("Upload a photo of a garment", type=["png", "jpg", "jpeg"])
+    examples = call_api("GET", "/search/examples") or []
+    if examples:
+        with st.expander("…or pick an example photo", expanded=upload is None):
+            st.caption(
+                "These are H&M garments that are not in this catalog, so every result is a "
+                "different product that looks alike."
+            )
+            for start in range(0, len(examples), QUERY_PHOTO_COLUMNS):
+                columns = st.columns(QUERY_PHOTO_COLUMNS)
+                for column, example in zip(
+                    columns, examples[start : start + QUERY_PHOTO_COLUMNS], strict=False
+                ):
+                    with column:
+                        if (photo := query_photo(example["photo_id"])) is not None:
+                            st.image(photo, width="stretch")
+                        st.button(
+                            example["product_type"],
+                            key=f"query_photo_{example['photo_id']}",
+                            help=f"{example['name']} · {example['colour']}",
+                            on_click=choose_query_photo,
+                            args=(example["photo_id"],),
+                            width="stretch",
+                        )
+
+    if upload is not None:
+        name, content = upload.name, upload.getvalue()
+    elif (photo_id := st.session_state.get("query_photo_id")) is not None:
+        name, content = f"{photo_id}.jpg", query_photo(photo_id)
+    else:
+        return
+    if content is None:
+        st.error("The example photo is no longer available.")
+        return
+    left, right = st.columns([0.2, 0.8])
+    with left:
+        st.image(content, caption="Query photo", width="stretch")
+    with right, st.spinner("Searching photos…"):
+        show_hits(
+            call_api("POST", "/search/image", params={"top_k": 9}, files={"file": (name, content)})
+        )
+
+
+def evaluation_tab() -> None:
+    evaluation = call_api("GET", "/evaluation", missing_ok=True)
+    if evaluation is None:
+        return
+    scope = evaluation["sample_scope"]
+    st.markdown(
+        f"Every strategy is trained on purchases before **{evaluation['cutoff']}** and asked "
+        f"for {evaluation['top_k']} products per customer. They are scored against what "
+        f"**{evaluation['users_evaluated']:,}** customers bought in the "
+        f"{evaluation['holdout_days']} days up to {evaluation['holdout_end']}."
+    )
+    results = evaluation["results"]
+    baseline = results.get("popularity", {}).get("novel_item_holdout", {}).get("map_at_12")
+    rows = []
+    for name, metrics in results.items():
+        novel = metrics["novel_item_holdout"]["map_at_12"]
+        rows.append(
+            {
+                "Strategy": STRATEGY_NAMES.get(name, name),
+                "MAP@12, new items": novel,
+                "vs popularity": novel / baseline if novel is not None and baseline else None,
+                "MAP@12, all purchases": metrics["full_holdout"]["map_at_12"],
+                "Catalog coverage": metrics["catalog_coverage"],
+                "List fill": metrics["recommendation_fill"],
+            }
+        )
+    st.dataframe(
+        rows,
+        hide_index=True,
+        width="stretch",
+        column_config={
+            "MAP@12, new items": st.column_config.NumberColumn(format="%.4f"),
+            "vs popularity": st.column_config.NumberColumn(format="%.2fx"),
+            "MAP@12, all purchases": st.column_config.NumberColumn(format="%.4f"),
+            "Catalog coverage": st.column_config.NumberColumn(format="percent"),
+            "List fill": st.column_config.NumberColumn(format="percent"),
+        },
+    )
+    st.bar_chart(
+        {row["Strategy"]: row["MAP@12, new items"] or 0.0 for row in rows},
+        horizontal=True,
+        x_label="MAP@12 on items the customer had not bought before",
+        y_label="",
+    )
+    if evaluation.get("content_index") is None:
+        st.caption("Content-based results are missing: the evaluation ran without an image index.")
+    repeats = evaluation["repeat_purchase_limitation"]
+    st.caption(
+        f"MAP@12 is mean average precision over the top 12 (1.0 = every hit ranked first). "
+        f"Recommenders never repeat a past purchase, so the new-items column, covering "
+        f"{repeats['novel_holdout_unique_user_items']:,} of "
+        f"{repeats['full_holdout_unique_user_items']:,} customer-product pairs, is the fair "
+        f"comparison. Catalog coverage is the share of the {scope['catalog_products']:,} "
+        f"products recommended to anyone. These numbers describe this "
+        f"{scope['prepared_users']:,}-customer sample, not a leaderboard score."
+    )
 
 
 def chat_tab() -> None:
@@ -516,11 +686,19 @@ def main() -> None:
             "Text → image search",
             "Image search",
             "Shopping assistant",
+            "Evaluation",
         ]
     )
     for tab, render in zip(
         tabs,
-        [recommendations_tab, knowledge_graph_tab, text_search_tab, image_search_tab, chat_tab],
+        [
+            recommendations_tab,
+            knowledge_graph_tab,
+            text_search_tab,
+            image_search_tab,
+            chat_tab,
+            evaluation_tab,
+        ],
         strict=True,
     ):
         with tab:
