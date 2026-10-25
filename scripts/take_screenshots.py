@@ -18,8 +18,9 @@ from playwright.sync_api import Page, sync_playwright
 VIEWPORT = {"width": 1440, "height": 1500}
 # Upper bound for API calls behind a click (CLIP inference, LLM round-trips).
 RESULT_TIMEOUT_MS = 120_000
-RECOMMENDATIONS_PER_GRID = 10
-SEARCH_RESULTS_PER_GRID = 9
+# Photos to wait for: two rows of three cards fill the viewport. A few products have no
+# photo, so waiting for a whole grid could hang; wait_for_rerun ensures they are fresh.
+PHOTOS_IN_VIEW = 6
 
 # Streamlit re-renders asynchronously, so "no spinner" can be true before a rerun even starts.
 # The script waits for the expected number of visible, decoded photos instead.
@@ -35,13 +36,35 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ui-url", default="http://127.0.0.1:8501")
     parser.add_argument("--out", type=Path, default=Path("docs/screenshots"))
     parser.add_argument("--channel", default="chrome", help='Browser channel; "" for Chromium.')
+    parser.add_argument("--executable-path", help="Browser binary, overriding --channel.")
     parser.add_argument("--query-image", type=Path, help="Photo for image search.")
     parser.add_argument("--text-query", default="striped summer dress")
     parser.add_argument(
         "--chat-message", default="Black wide-leg trousers for women under €40, please"
     )
     parser.add_argument("--skip-chat", action="store_true", help="No LLM is configured.")
+    parser.add_argument(
+        "--example", type=int, default=0, help="Curated customer example to show (0-based)."
+    )
     return parser.parse_args()
+
+
+_RERUN_FINISHED = """() =>
+    !document.querySelector('[data-stale="true"]') &&
+    !document.querySelector('[data-testid="stStatusWidgetRunningIcon"]')"""
+
+
+def wait_for_rerun(page: Page) -> None:
+    """Wait until Streamlit has replaced the previous run's (stale) elements."""
+    page.wait_for_timeout(500)  # the rerun starts asynchronously after an interaction
+    page.wait_for_function(_RERUN_FINISHED, timeout=RESULT_TIMEOUT_MS)
+
+
+def choose_example(page: Page, index: int) -> None:
+    """Pick a curated customer in the visible tab's first select box."""
+    page.locator('[data-testid="stSelectbox"]:visible').first.click()
+    page.get_by_role("option").nth(index).click()
+    wait_for_rerun(page)
 
 
 def wait_for_photos(page: Page, minimum: int) -> None:
@@ -63,32 +86,47 @@ def main() -> None:
     args = parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(channel=args.channel or None)
+        browser = playwright.chromium.launch(
+            channel=args.channel or None, executable_path=args.executable_path
+        )
         page = browser.new_page(viewport=VIEWPORT)
         page.goto(args.ui_url)
 
-        wait_for_photos(page, RECOMMENDATIONS_PER_GRID)
+        wait_for_photos(page, PHOTOS_IN_VIEW)
+        if args.example:
+            choose_example(page, args.example)
+            wait_for_photos(page, PHOTOS_IN_VIEW)
         capture(page, args.out, "recommendations-graph")
 
         page.get_by_text("Content-based (CLIP taste vector)").click()
-        page.wait_for_timeout(1000)  # let the rerun replace the graph results
-        wait_for_photos(page, RECOMMENDATIONS_PER_GRID)
+        wait_for_rerun(page)
+        wait_for_photos(page, PHOTOS_IN_VIEW)
         capture(page, args.out, "recommendations-content")
 
         page.get_by_text("Collaborative (similar shoppers)").click()
+        wait_for_rerun(page)
         page.get_by_text("Most similar shoppers").wait_for(timeout=RESULT_TIMEOUT_MS)
-        wait_for_photos(page, RECOMMENDATIONS_PER_GRID)
+        wait_for_photos(page, PHOTOS_IN_VIEW)
         capture(page, args.out, "recommendations-collaborative")
 
+        page.get_by_text("Hybrid (collaborative + content-based)").click()
+        wait_for_rerun(page)
+        wait_for_photos(page, PHOTOS_IN_VIEW)
+        capture(page, args.out, "recommendations-hybrid")
+
         open_tab(page, "Knowledge graph")
+        if args.example:
+            choose_example(page, args.example)
         page.get_by_text("Looks similar").click()
+        wait_for_rerun(page)
         wait_for_photos(page, 3)
         capture(page, args.out, "knowledge-graph-similar")
 
         open_tab(page, "Text → image search")
         page.get_by_label("Describe what you are looking for").fill(args.text_query)
         page.keyboard.press("Enter")
-        wait_for_photos(page, SEARCH_RESULTS_PER_GRID)
+        wait_for_rerun(page)
+        wait_for_photos(page, PHOTOS_IN_VIEW)
         capture(page, args.out, "text-search")
 
         open_tab(page, "Image search")
@@ -98,7 +136,8 @@ def main() -> None:
             page.get_by_text("pick an example photo").wait_for(timeout=RESULT_TIMEOUT_MS)
             page.locator('[class*="st-key-query_photo_"] button').first.click()
         page.get_by_text("Query photo").wait_for(timeout=RESULT_TIMEOUT_MS)
-        wait_for_photos(page, SEARCH_RESULTS_PER_GRID + 1)  # results plus the query photo
+        wait_for_rerun(page)
+        wait_for_photos(page, PHOTOS_IN_VIEW + 1)  # results plus the query photo
         capture(page, args.out, "image-search")
 
         open_tab(page, "Evaluation")

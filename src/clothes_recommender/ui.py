@@ -554,7 +554,8 @@ def image_search_tab() -> None:
     upload = st.file_uploader("Upload a photo of a garment", type=["png", "jpg", "jpeg"])
     examples = call_api("GET", "/search/examples") or []
     if examples:
-        with st.expander("…or pick an example photo", expanded=upload is None):
+        chosen = st.session_state.get("query_photo_id") is not None
+        with st.expander("…or pick an example photo", expanded=upload is None and not chosen):
             st.caption(
                 "These are H&M garments that are not in this catalog, so every result is a "
                 "different product that looks alike."
@@ -594,6 +595,65 @@ def image_search_tab() -> None:
         )
 
 
+def evaluation_chart_spec(rows: list[dict], baseline: float | None) -> dict:
+    """Bars of new-item MAP@12, best first, with popularity as a dashed reference line."""
+    values = [
+        {
+            "Strategy": row["Strategy"],
+            "MAP@12": row["MAP@12, new items"],
+            "Label": f"{row['vs popularity']:.2f}x" if row["vs popularity"] else "",
+        }
+        for row in rows
+        if row["MAP@12, new items"] is not None
+    ]
+    y = {
+        "field": "Strategy",
+        "type": "nominal",
+        "sort": "-x",
+        "title": None,
+        "axis": {"labelLimit": 320, "ticks": False, "domain": False},
+    }
+    x = {
+        "field": "MAP@12",
+        "type": "quantitative",
+        "title": "MAP@12 on items the customer had not bought before",
+        "axis": {"format": ".3f", "tickCount": 6, "gridOpacity": 0.4},
+    }
+    layers: list[dict] = [
+        {
+            "mark": {"type": "bar", "cornerRadiusEnd": 4, "height": {"band": 0.6}},
+            "encoding": {
+                "y": y,
+                "x": x,
+                "tooltip": [
+                    {"field": "Strategy", "type": "nominal"},
+                    {"field": "MAP@12", "type": "quantitative", "format": ".4f"},
+                    {"field": "Label", "title": "vs popularity"},
+                ],
+            },
+        },
+        {
+            "mark": {"type": "text", "align": "left", "dx": 6},
+            "encoding": {"y": y, "x": x, "text": {"field": "Label"}},
+        },
+    ]
+    if baseline:
+        layers.append(
+            {
+                "data": {"values": [{"baseline": baseline}]},
+                "mark": {"type": "rule", "strokeDash": [4, 4], "opacity": 0.7},
+                "encoding": {"x": {"field": "baseline", "type": "quantitative"}},
+            }
+        )
+    return {
+        "description": "Offline MAP@12 per strategy; the dashed line marks popularity.",
+        "data": {"values": values},
+        "height": 44 * len(values),
+        "layer": layers,
+        "config": {"view": {"stroke": None}},
+    }
+
+
 def evaluation_tab() -> None:
     evaluation = call_api("GET", "/evaluation", missing_ok=True)
     if evaluation is None:
@@ -620,6 +680,7 @@ def evaluation_tab() -> None:
                 "List fill": metrics["recommendation_fill"],
             }
         )
+    rows.sort(key=lambda row: -(row["MAP@12, new items"] or 0.0))
     st.dataframe(
         rows,
         hide_index=True,
@@ -632,12 +693,7 @@ def evaluation_tab() -> None:
             "List fill": st.column_config.NumberColumn(format="percent"),
         },
     )
-    st.bar_chart(
-        {row["Strategy"]: row["MAP@12, new items"] or 0.0 for row in rows},
-        horizontal=True,
-        x_label="MAP@12 on items the customer had not bought before",
-        y_label="",
-    )
+    st.vega_lite_chart(evaluation_chart_spec(rows, baseline), width="stretch")
     if evaluation.get("content_index") is None:
         st.caption("Content-based results are missing: the evaluation ran without an image index.")
     repeats = evaluation["repeat_purchase_limitation"]

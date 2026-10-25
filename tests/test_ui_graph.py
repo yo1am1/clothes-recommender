@@ -660,6 +660,7 @@ def test_evaluation_tab_compares_strategies_with_popularity(mocked_api):
     app = AppTest.from_function(run_ui).run()
     assert not app.exception
     table = next(frame.value for frame in app.dataframe if "Strategy" in frame.value)
-    assert table["vs popularity"].round(2).tolist() == [1.0, 3.0]
+    # Best first.
+    assert table["vs popularity"].round(2).tolist() == [3.0, 1.0]
     assert any("321" in markdown.value for markdown in app.markdown)
     assert any("without an image index" in caption.value for caption in app.caption)
