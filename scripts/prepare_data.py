@@ -14,7 +14,9 @@ Hugging Face mirror that scripts/fetch_photos.py downloads photos from. Without 
 Keeps the most recent weeks of transactions, samples active customers, and writes
 products/users/purchases parquet files plus downsized photos of every product they bought.
 Co-purchase links between those products are counted over all shoppers, not just the
-sample, so they stay dense. The archive is read in place: nothing else is extracted.
+sample, so they stay dense; shopper_purchases.parquet keeps every shopper's purchases of
+catalog products, under anonymous integer ids, for popularity and collaborative filtering.
+The archive is read in place: nothing else is extracted.
 """
 
 import argparse
@@ -267,6 +269,16 @@ def prepare(archive_path: Path, data_dir: Path, weeks: int, customer_count: int,
         )
 
         links = co_purchases(transactions, article_ids)
+        # Every shopper's purchases of catalog products, not just the sample's: popularity
+        # and item-to-item collaborative filtering need the whole crowd to be reliable.
+        in_catalog = transactions[transactions["article_id"].isin(article_ids)]
+        shopper_purchases = pd.DataFrame(
+            {
+                "shopper_id": in_catalog["customer_id"].cat.codes.astype("int32"),
+                "product_id": in_catalog["article_id"],
+                "purchase_date": in_catalog["t_dat"],
+            }
+        )
         if archive.has_photos:
             images_dir.mkdir(parents=True, exist_ok=True)
             for article_id in tqdm(article_ids, unit="photo", desc="Extracting photos"):
@@ -279,6 +291,7 @@ def prepare(archive_path: Path, data_dir: Path, weeks: int, customer_count: int,
     users.to_parquet(data_dir / "users.parquet", index=False)
     purchases.to_parquet(data_dir / "purchases.parquet", index=False)
     links.to_parquet(data_dir / "co_purchases.parquet", index=False)
+    shopper_purchases.to_parquet(data_dir / "shopper_purchases.parquet", index=False)
     linked = len(set(links["product_id"]) | set(links["other_id"]))
     logger.info(
         "Wrote %d products, %d users, %d purchases and %d co-purchase links "

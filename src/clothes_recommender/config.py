@@ -51,6 +51,11 @@ class Settings(BaseSettings):
         return self.data_dir / "purchases.parquet"
 
     @property
+    def shopper_purchases_path(self) -> Path:
+        """Every shopper's purchases of catalog products, under anonymous ids."""
+        return self.data_dir / "shopper_purchases.parquet"
+
+    @property
     def co_purchases_path(self) -> Path:
         return self.data_dir / "co_purchases.parquet"
 

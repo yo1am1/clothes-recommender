@@ -146,6 +146,18 @@ def test_counts_co_purchases_from_unsampled_shoppers(data_dir: Path) -> None:
     ]
 
 
+def test_keeps_every_shoppers_catalog_purchases_anonymously(data_dir: Path) -> None:
+    shoppers = pd.read_parquet(data_dir / "shopper_purchases.parquet")
+
+    assert list(shoppers.columns) == ["shopper_id", "product_id", "purchase_date"]
+    assert shoppers["shopper_id"].dtype == "int32"
+    # Sampled a and b plus unsampled c, inside the window and the photographed catalog only.
+    assert shoppers["shopper_id"].nunique() == 3
+    assert set(shoppers["product_id"]) == set(PHOTOS)
+    assert len(shoppers) == 4 + 1 + 5 + 4
+    assert pd.to_datetime(shoppers["purchase_date"]).min() >= pd.Timestamp("2020-09-16")
+
+
 @pytest.mark.parametrize(
     "article_ids, rows",
     [
