@@ -182,6 +182,11 @@ def test_graph_explorer_focus_strategy_reasons_and_related_controls(mocked_api):
     assert "Recommended" in focus.options[1]
     relationships = next(frame.value for frame in app.dataframe if "Relationship" in frame.value)
     assert set(relationships["Relationship"]) == {"in_category", "alternative"}
+    assert any(title.value == "Product connections" for title in app.title)
+    relationship_details = next(
+        expander for expander in app.expander if expander.label == "Relationships"
+    )
+    assert not relationship_details.proto.expanded
     assert any(text.value == "Shares a purchase connection." for text in app.text)
     assert any(caption.value == "No photo available." for caption in app.caption)
     assert ("/products/1/graph", {"top_k": "12"}) in calls

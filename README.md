@@ -74,6 +74,15 @@ See [description matches](docs/screenshots/mvp-discover-text.jpg),
 [photo matches](docs/screenshots/mvp-discover-photo.jpg), and the
 [phone layout](docs/screenshots/mvp-discover-mobile.jpg).
 
+### Product connections
+
+Choose a starting piece, explore the graph, then browse related products.
+The relationship table expands on demand, and the graph keeps its layout limitation
+visible. Shopping-history controls use the same toolbar pattern as the feed.
+
+![Clothy product connections](docs/screenshots/mvp-connections.jpg)
+
+[Phone layout](docs/screenshots/mvp-connections-mobile.jpg).
 Earlier graph theme captures remain available:
 [dark](docs/screenshots/knowledge-graph-dark-desktop.png),
 [light](docs/screenshots/knowledge-graph-light-desktop.png),

@@ -36,13 +36,13 @@ h1, h2, h3 { text-wrap: balance; }
 /* Search controls form one task; examples and catalog context stay secondary. */
 .st-key-discovery_mode { margin-block-end: .75rem; }
 .st-key-discovery_mode button { min-height: 2.75rem; padding-inline: 1.25rem; }
-:is(.st-key-text_search_panel, .st-key-photo_search_panel) {
+:is(.st-key-text_search_panel, .st-key-photo_search_panel, .st-key-connection_controls) {
     background: color-mix(in srgb, currentColor 4%, transparent);
     border-color: color-mix(in srgb, currentColor 16%, transparent);
     border-radius: .65rem;
     padding: 1.5rem 1.75rem;
 }
-:is(.st-key-text_search_panel, .st-key-photo_search_panel) h3 {
+:is(.st-key-text_search_panel, .st-key-photo_search_panel, .st-key-connection_controls) h3 {
     font: 600 1.35rem/1.4 system-ui, sans-serif;
     letter-spacing: -.025em;
     padding-block: 0 .5rem;
@@ -65,7 +65,7 @@ h1, h2, h3 { text-wrap: balance; }
     .clothy-brand span { margin-left: .75rem; font-size: .55rem; }
     [class*="st-key-product_card_"] { max-width: 100%; }
     .st-key-feed_controls { justify-content: flex-start; }
-    :is(.st-key-text_search_panel, .st-key-photo_search_panel) { padding: 1rem; }
+    :is(.st-key-text_search_panel, .st-key-photo_search_panel, .st-key-connection_controls) { padding: 1rem; }
     .st-key-photo_search_panel [data-testid="stHorizontalBlock"] {
         display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
     }

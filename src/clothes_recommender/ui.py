@@ -458,11 +458,10 @@ def graph_view(
 
 
 def knowledge_graph_tab() -> None:
-    st.subheader("Explore product connections")
-    st.caption(
-        "Start with a purchase or graph recommendation. Select a node to inspect its connections."
-    )
-    with st.spinner("Loading customer examples…"):
+    left, right = st.columns([0.65, 0.35], vertical_alignment="bottom")
+    with left:
+        st.title("Product connections")
+    with right, st.popover("Shopping history", width="stretch"):
         example = customer_selector("Customer", "graph_user")
     if example is None:
         return
@@ -482,20 +481,26 @@ def knowledge_graph_tab() -> None:
         return
     product_ids = list(products)
     focus_id = example.get("focus_product_id")
-    product_id = st.selectbox(
-        "Focus product",
-        product_ids,
-        index=product_ids.index(focus_id) if focus_id in products else 0,
-        key=f"graph_focus_{user_id}_{focus_id}",
-        format_func=lambda pid: (
-            f"{'Purchased' if pid in purchased_ids else 'Recommended'} · "
-            f"{products[pid]['name']} (#{pid})"
-        ),
-    )
-    product = products[product_id]
-    st.text(f"{product['name']} · €{product['price']:.2f} · {product['product_type']}")
-    for reason in recommended.get(product_id, {}).get("reasons", []):
-        st.caption(reason)
+    with st.container(key="connection_controls", border=True):
+        st.subheader("Choose a starting piece")
+        product_id = st.selectbox(
+            "Focus product",
+            product_ids,
+            index=product_ids.index(focus_id) if focus_id in products else 0,
+            key=f"graph_focus_{user_id}_{focus_id}",
+            format_func=lambda pid: (
+                f"{'Purchased' if pid in purchased_ids else 'Recommended'} · "
+                f"{products[pid]['name']} (#{pid})"
+            ),
+        )
+        product = products[product_id]
+        st.caption(
+            f"Shopping history #{user_id} · {product['product_type']} · €{product['price']:.2f}"
+        )
+        for reason in recommended.get(product_id, {}).get("reasons", []):
+            st.caption(reason)
+    st.subheader("Explore the connections")
+    st.write("Select a product node to explore its related pieces.")
     with st.spinner("Loading product neighborhood…"):
         graph = call_api("GET", f"/products/{product_id}/graph", params={"top_k": 12})
     selected_id = None
@@ -506,10 +511,6 @@ def knowledge_graph_tab() -> None:
         if not table:
             st.info("No relationships are available for this product.")
         else:
-            st.caption(
-                "Up to 12 nodes and 24 relationships. "
-                "Positions are for readability; distance has no meaning."
-            )
             event = st.vega_lite_chart(
                 spec,
                 width="stretch",
@@ -532,8 +533,10 @@ def knowledge_graph_tab() -> None:
                     for row, edge in zip(table, edges, strict=True)
                     if selected_id in (edge["source"], edge["target"])
                 ]
-            st.subheader("Relationships")
-            st.dataframe(table, hide_index=True, width="stretch")
+            st.caption("Node spacing does not measure similarity.")
+            with st.expander("Relationships"):
+                st.caption("This view shows up to 12 nodes and 24 relationships.")
+                st.dataframe(table, hide_index=True, width="stretch")
     st.subheader(f"Related products · {selected_label}")
     kind = st.radio(
         "Relationship",
