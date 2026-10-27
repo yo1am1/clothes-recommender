@@ -12,6 +12,7 @@ from collections.abc import Iterable, Sequence
 from datetime import date
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from qdrant_client import QdrantClient
 
@@ -19,6 +20,7 @@ from clothes_recommender.catalog import CustomerData, ProductCatalog, load_shopp
 from clothes_recommender.config import get_settings
 from clothes_recommender.recommenders.collaborative import CollaborativeRecommender
 from clothes_recommender.recommenders.content_based import ContentBasedRecommender
+from clothes_recommender.recommenders.learned import LearnedRecommender, load_model
 from clothes_recommender.recommenders.popularity import PopularityRecommender
 from clothes_recommender.recommenders.repeat import RepeatPurchaseRecommender
 from clothes_recommender.vector_store import ProductVectorStore
@@ -85,8 +87,37 @@ def ranking_metrics(truth: dict, predictions: dict, user_ids: list) -> dict:
     }
 
 
+def paired_map_gain(truth: dict, candidate: dict, baseline: dict, user_ids: list) -> dict:
+    """Paired customer bootstrap over this selected cohort, not population-level uncertainty."""
+    differences = np.array(
+        [
+            average_precision_at_k(truth[u], candidate[u])
+            - average_precision_at_k(truth[u], baseline[u])
+            for u in user_ids
+        ]
+    )
+    random = np.random.default_rng(42)
+    samples = [
+        differences[random.integers(0, len(differences), len(differences))].mean()
+        for _ in range(2000)
+    ]
+    lower, upper = np.quantile(samples, [0.025, 0.975])
+    return {
+        "mean_delta": float(differences.mean()),
+        "lower_95": float(lower),
+        "upper_95": float(upper),
+        "paired_customers": len(user_ids),
+        "bootstrap_resamples": 2000,
+        "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty",
+    }
+
+
 def evaluate(
-    data_dir: Path, qdrant_path: Path | None = None, *, holdout_end: date | None = None
+    data_dir: Path,
+    qdrant_path: Path | None = None,
+    *,
+    holdout_end: date | None = None,
+    ranker_path: Path | None = None,
 ) -> dict:
     """Evaluate prepared users with training and holdout purchases; download no models."""
     from clothes_recommender.recommenders.graph import GraphRecommender
@@ -135,6 +166,20 @@ def evaluate(
         "collaborative": CollaborativeRecommender(customers, catalog, shoppers, popular),
         "graph": GraphRecommender(customers, catalog, popular, links),
     }
+    ranker_metadata = None
+    if ranker_path is not None:
+        model = load_model(ranker_path)
+        if model.trained_through >= cutoff.date():
+            raise ValueError("Ranker training must end strictly before the holdout cutoff")
+        recommenders["learned"] = LearnedRecommender(
+            customers,
+            catalog,
+            recommenders["collaborative"],
+            popular,
+            model.weights,
+            (cutoff - pd.Timedelta(days=1)).date(),
+        )
+        ranker_metadata = model.model_dump(mode="json", exclude={"weights"})
     result = {
         "cutoff": cutoff.date().isoformat(),
         "holdout_end": (
@@ -167,6 +212,7 @@ def evaluate(
             "novel_holdout_unique_user_items": sum(len(novel[uid]) for uid in eligible),
         },
         "content_index": None,
+        "ranker": ranker_metadata,
         "results": {},
     }
     store = None
@@ -195,6 +241,7 @@ def evaluate(
                 "indexed_products": len(indexed),
                 "limitation": "The index does not record vector provenance",
             }
+        all_predictions = {}
         for name in ["popularity", "popularity_novel", *recommenders]:
             predictions = {}
             for uid in eligible:
@@ -209,6 +256,7 @@ def evaluate(
                 if not set(ranked).issubset(catalog_ids):
                     raise ValueError(f"{name} recommended products outside the prepared catalog")
                 predictions[uid] = ranked
+            all_predictions[name] = predictions
             result["results"][name] = {
                 "full_holdout": ranking_metrics(truth, predictions, eligible),
                 "novel_item_holdout": ranking_metrics(novel, predictions, novel_users),
@@ -217,6 +265,10 @@ def evaluate(
                 "recommendation_fill": sum(map(len, predictions.values()))
                 / (len(eligible) * TOP_K),
             }
+        if "learned" in all_predictions:
+            result["learned_vs_repeat"] = paired_map_gain(
+                truth, all_predictions["learned"], all_predictions["repeat"], eligible
+            )
     finally:
         if store is not None:
             store.close()
@@ -235,9 +287,12 @@ def main(argv: Sequence[str] | None = None) -> None:
         type=date.fromisoformat,
         help="Last date of the seven-day holdout; permits earlier validation weeks",
     )
+    parser.add_argument("--ranker", type=Path, help="Explicit past-trained JSON ranker artifact")
     args = parser.parse_args(argv)
     try:
-        result = evaluate(args.data_dir, args.qdrant_path, holdout_end=args.holdout_end)
+        result = evaluate(
+            args.data_dir, args.qdrant_path, holdout_end=args.holdout_end, ranker_path=args.ranker
+        )
     except (ValueError, FileNotFoundError) as error:
         parser.error(str(error))
     text = json.dumps(result, indent=2, sort_keys=True, allow_nan=False)

@@ -77,7 +77,9 @@ def test_health_reports_index_size_and_chat_status(client) -> None:
     assert client.get("/health").json() == {
         "status": "ok",
         "indexed_products": 6,
+        "catalog_products": 6,
         "chat_enabled": False,
+        "ranking_enabled": False,
     }
 
 
@@ -264,3 +266,31 @@ def test_repeat_strategy_includes_purchase_and_grounded_reason(client):
     assert (
         client.get("/users/404/recommendations", params={"strategy": "repeat"}).status_code == 404
     )
+
+
+def test_learned_strategy_requires_model_and_returns_grounded_hits(services):
+    import numpy as np
+
+    from clothes_recommender.recommenders.learned import FEATURES, LearnedRecommender
+
+    with TestClient(create_app(services)) as client:
+        assert (
+            client.get("/users/1/recommendations", params={"strategy": "learned"}).status_code
+            == 503
+        )
+    ranker = LearnedRecommender(
+        services.customers,
+        services.catalog,
+        services.collaborative,
+        PopularityRecommender(services.customers.purchases),
+        np.zeros(len(FEATURES)),
+        date(2020, 9, 4),
+    )
+    with TestClient(create_app(dataclasses.replace(services, learned=ranker))) as client:
+        assert client.get("/health").json()["ranking_enabled"]
+        hits = client.get("/users/1/recommendations", params={"strategy": "learned"}).json()
+        assert hits and all(hit["reasons"] for hit in hits)
+        assert (
+            client.get("/users/404/recommendations", params={"strategy": "learned"}).status_code
+            == 404
+        )

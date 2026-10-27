@@ -75,7 +75,9 @@ class ChatRequest(BaseModel):
 class Health(BaseModel):
     status: Literal["ok"] = "ok"
     indexed_products: int
+    catalog_products: int
     chat_enabled: bool
+    ranking_enabled: bool
 
 
 def get_services(request: Request) -> Services:
@@ -141,7 +143,12 @@ def create_app(services: Services | None = None) -> FastAPI:
     @app.get("/health")
     def health(services: ServicesDep) -> Health:
         indexed = services.store.count() if services.store.exists() else 0
-        return Health(indexed_products=indexed, chat_enabled=services.assistant is not None)
+        return Health(
+            indexed_products=indexed,
+            catalog_products=len(services.catalog),
+            chat_enabled=services.assistant is not None,
+            ranking_enabled=services.learned is not None,
+        )
 
     @app.get("/products/{product_id}")
     def get_product(product_id: int, services: ServicesDep) -> Product:
@@ -255,20 +262,26 @@ def create_app(services: Services | None = None) -> FastAPI:
     def recommend(
         user_id: int,
         services: ServicesDep,
-        strategy: Literal["content", "collaborative", "graph", "repeat"] = "content",
+        strategy: Literal["content", "collaborative", "graph", "repeat", "learned"] = "content",
         top_k: TopK = 10,
     ) -> list[ProductHit]:
-        recommender: Recommender = {
+        recommender: Recommender | None = {
             "content": services.content_based,
             "collaborative": services.collaborative,
             "graph": services.graph,
             "repeat": services.repeat,
+            "learned": services.learned,
         }[strategy]
+        if recommender is None:
+            raise HTTPException(
+                status_code=503, detail="Personalized ranking is not available yet."
+            )
         hits = _to_hits(services, recommender.recommend(user_id, top_k))
         explainer = {
             "graph": services.graph,
             "collaborative": services.collaborative,
             "repeat": services.repeat,
+            "learned": services.learned,
         }.get(strategy)
         if explainer is not None:
             for hit in hits:

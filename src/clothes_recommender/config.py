@@ -69,6 +69,10 @@ class Settings(BaseSettings):
         return self.data_dir / "query_photos"
 
     @property
+    def ranker_path(self) -> Path:
+        return self.data_dir / "ranker.json"
+
+    @property
     def evaluation_path(self) -> Path:
         return self.data_dir / "evaluation.json"
 

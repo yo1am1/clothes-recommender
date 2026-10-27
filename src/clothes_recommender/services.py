@@ -16,6 +16,7 @@ from clothes_recommender.embeddings import ClipEncoder
 from clothes_recommender.recommenders.collaborative import CollaborativeRecommender
 from clothes_recommender.recommenders.content_based import ContentBasedRecommender
 from clothes_recommender.recommenders.graph import GraphRecommender
+from clothes_recommender.recommenders.learned import LearnedRecommender, load_model
 from clothes_recommender.recommenders.popularity import PopularityRecommender
 from clothes_recommender.recommenders.repeat import RepeatPurchaseRecommender
 from clothes_recommender.search import ProductSearch
@@ -40,6 +41,7 @@ class Services:
     # Optional demo assets; the endpoints that serve them answer 404 when they are missing.
     query_photos_dir: Path | None = None
     evaluation_path: Path | None = None
+    learned: LearnedRecommender | None = None
 
     @cached_property
     def demo_customers(self) -> list[DemoCustomer]:
@@ -69,13 +71,24 @@ def build_services(settings: Settings) -> Services:
     else:
         logger.warning("LLM_MODEL is not set: the shopping assistant is disabled.")
 
+    collaborative = CollaborativeRecommender(customers, catalog, shopper_purchases, popularity)
+    learned = None
+    if settings.ranker_path.is_file():
+        model = load_model(settings.ranker_path)
+        as_of = pd.to_datetime(shopper_purchases["purchase_date"]).max().date()
+        if model.trained_through > as_of:
+            raise ValueError("Ranker training exceeds this dataset's observation window")
+        learned = LearnedRecommender(
+            customers, catalog, collaborative, popularity, model.weights, as_of
+        )
     return Services(
         catalog=catalog,
         customers=customers,
         store=store,
         search=search,
         content_based=ContentBasedRecommender(customers, catalog, store, popularity),
-        collaborative=CollaborativeRecommender(customers, catalog, shopper_purchases, popularity),
+        collaborative=collaborative,
+        learned=learned,
         graph=GraphRecommender(customers, catalog, popularity, links),
         repeat=RepeatPurchaseRecommender(customers, popularity),
         images_dir=settings.images_dir,

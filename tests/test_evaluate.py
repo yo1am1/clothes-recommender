@@ -250,3 +250,40 @@ def test_explicit_validation_window_ignores_later_purchases():
     assert cutoff == pd.Timestamp("2020-01-02")
     assert train["product_id"].tolist() == [1]
     assert holdout["product_id"].tolist() == [2]
+
+
+def test_ranker_artifact_cannot_have_seen_holdout_labels(prepared_evaluation):
+    from datetime import date
+
+    from clothes_recommender.recommenders.learned import FEATURES, RankerModel
+
+    data_dir, _ = prepared_evaluation
+    model = RankerModel(
+        weights=[0] * len(FEATURES),
+        trained_through=date(2019, 12, 31),
+        training_window_ends=[date(2019, 12, 17), date(2019, 12, 24), date(2019, 12, 31)],
+        training_rows=10,
+        training_positives=1,
+    )
+    path = data_dir / "ranker.json"
+    path.write_text(model.model_dump_json())
+    result = evaluate.evaluate(data_dir, ranker_path=path)
+    assert "learned" in result["results"]
+    assert result["ranker"]["trained_through"] == "2019-12-31"
+    assert "weights" not in result["ranker"]
+    data = model.model_dump(mode="json")
+    data["trained_through"] = "2020-01-02"
+    data["training_window_ends"] = ["2019-12-19", "2019-12-26", "2020-01-02"]
+    path.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match="strictly before"):
+        evaluate.evaluate(data_dir, ranker_path=path)
+
+
+def test_paired_bootstrap_preserves_identical_and_known_customer_gains():
+    truth = {1: {1}, 2: {2}}
+    baseline = {1: [], 2: []}
+    candidate = {1: [1], 2: [2]}
+    zero = evaluate.paired_map_gain(truth, candidate, candidate, [1, 2])
+    assert (zero["mean_delta"], zero["lower_95"], zero["upper_95"]) == (0, 0, 0)
+    gain = evaluate.paired_map_gain(truth, candidate, baseline, [1, 2])
+    assert (gain["mean_delta"], gain["lower_95"], gain["upper_95"]) == (1, 1, 1)

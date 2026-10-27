@@ -5,6 +5,7 @@ search, classic and graph recommendations, and an LLM shopping assistant:
 
 | Feature | How it works |
 |---|---|
+| Learned ranking | A past-trained linear relevance model combines repeat purchases, collaborative candidates, popularity and catalog affinities. Scores describe ranking, not purchase probability. |
 | Text-to-image search | The query is embedded with CLIP's text encoder and compared with the CLIP image embeddings of every product in Qdrant. |
 | Image search | An uploaded photo is embedded with CLIP's image encoder and compared the same way. Example photos show H&M garments outside the sampled catalog, so every match is a different product. |
 | Visually similar products | A product's own image embedding is the query (CLIP item-to-item), shown next to the graph's co-purchase complements and alternatives. |
@@ -252,6 +253,23 @@ Any OpenAI-compatible gateway (OmniRoute, OpenRouter, LiteLLM, Ollama, vLLM) wor
 Interactive docs at `http://localhost:8000/docs`.
 
 ## Offline evaluation
+
+Train the optional learned model before starting the API. Its default leaves the
+last week out; explicit training dates make comparisons reproducible:
+
+```bash
+uv run python -m scripts.train_ranker --data-dir data --train-through 2020-09-15
+uv run python -m scripts.evaluate --data-dir data --ranker data/ranker.json \
+  --qdrant-path .qdrant --output data/evaluation.json
+```
+
+A fresh model is loaded at API startup. Without it, the existing strategies work
+and `strategy=learned` returns 503. Evaluation rejects any artifact whose training
+reaches the holdout cutoff. On the 819-customer final week, observed MAP@12 is
+0.0302 versus 0.0248 for deterministic buy-again; hit rate is 13.9% versus 11.1%.
+The paired bootstrap interval crosses zero, so this does not establish superiority
+from that week alone. Full evidence and the three earlier validations are in the
+[recommendation audit](docs/recommendation-audit.md).
 
 The full holdout, including repeat purchases, is now the primary comparison.
 `strategy=repeat` exposes the strong recent-purchases plus best-sellers baseline.
