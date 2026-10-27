@@ -790,3 +790,23 @@ def test_validated_ranker_is_default_when_api_reports_it_ready(mocked_api):
     assert not app.exception
     assert next(widget for widget in app.radio if widget.label == "Strategy").value == "learned"
     assert ("/users/7/recommendations", {"strategy": "learned", "top_k": "12"}) in calls
+
+
+@pytest.mark.parametrize(
+    ("status", "detail"),
+    [(400, "Upload a valid PNG or JPEG image."), (413, "Image resolution is too large.")],
+)
+def test_rejected_photo_is_not_decoded_for_preview(mocked_api, monkeypatch, status, detail):
+    _, overrides = mocked_api
+    overrides["/search/image"] = (status, {"json": {"detail": detail}})
+    monkeypatch.setattr(
+        ui.st,
+        "file_uploader",
+        lambda *args, **kwargs: SimpleNamespace(
+            name="corrupt.jpg", getvalue=lambda: b"not an image"
+        ),
+    )
+    app = AppTest.from_string("from clothes_recommender import ui; ui.image_search_tab()").run()
+    assert not app.exception
+    assert app.error[0].value == detail
+    assert not app.get("imgs")

@@ -686,21 +686,23 @@ def image_search_tab() -> None:
         st.error("The example photo is no longer available.")
         return
     with st.container(key="photo_search_results"):
+        # The API validates file size and pixels before the UI tries to decode a preview.
+        with st.spinner("Searching photos…"):
+            hits = call_api(
+                "POST",
+                "/search/image",
+                params={"top_k": 9},
+                files={"file": (name, content)},
+            )
+        if hits is None:
+            return
         left, right = st.columns([0.2, 0.8], gap="large")
         with left:
             st.subheader("Query photo")
             st.image(content, width="stretch")
         with right:
             st.subheader("Visually similar pieces")
-            with st.spinner("Searching photos…"):
-                show_hits(
-                    call_api(
-                        "POST",
-                        "/search/image",
-                        params={"top_k": 9},
-                        files={"file": (name, content)},
-                    )
-                )
+            show_hits(hits)
 
 
 def evaluation_chart_spec(rows: list[dict], baseline: float | None) -> dict:
