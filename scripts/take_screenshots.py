@@ -65,7 +65,8 @@ def choose_example(page: Page, index: int) -> None:
     popover = page.get_by_role("button", name="Shopping history", exact=True)
     if popover.count():
         popover.click()
-    page.locator('[data-testid="stSelectbox"]:visible').first.click()
+    controls = page.get_by_test_id("stPopoverBody") if popover.count() else page
+    controls.locator('[data-testid="stSelectbox"]:visible').first.click()
     page.get_by_role("option").nth(index).click()
     wait_for_rerun(page)
     if popover.count():
@@ -94,6 +95,21 @@ def assert_card_alignment(page: Page) -> None:
                 "Uneven product actions"
             )
         previous = card
+
+
+def assert_chat_layout(page: Page) -> None:
+    """The open panel and its input must fit on screen, even with a long transcript."""
+    panel = page.get_by_test_id("stPopoverBody").bounding_box()
+    field = page.get_by_test_id("stChatInputTextArea").bounding_box()
+    viewport = page.viewport_size
+    assert panel is not None and field is not None and viewport is not None
+    assert panel["x"] >= 0 and panel["x"] + panel["width"] <= viewport["width"] + 1
+    assert panel["y"] >= 0 and panel["y"] + panel["height"] <= viewport["height"] + 1
+    assert panel["y"] <= field["y"]
+    assert field["y"] + field["height"] <= panel["y"] + panel["height"] - 16, (
+        "Chat input is clipped by its panel"
+    )
+    assert page.get_by_test_id("stChatInputSubmitButton").is_visible()
 
 
 def capture(page: Page, out: Path, name: str) -> None:
@@ -173,13 +189,20 @@ def main() -> None:
         capture(page, args.out, "evaluation")
 
         if not args.skip_chat:
-            open_page(page, "Assistant")
-            page.get_by_placeholder("Ask Clothy", exact=False).fill(args.chat_message)
+            page.get_by_role("button", name="Ask Clothy", exact=False).click()
+            page.get_by_placeholder("Describe a piece or ask a follow-up…").fill(args.chat_message)
             page.keyboard.press("Enter")
-            reply = page.get_by_test_id("stChatMessage").nth(1)
-            reply.get_by_test_id("stMarkdownContainer").first.wait_for(timeout=RESULT_TIMEOUT_MS)
+            page.locator('[class*="st-key-chat_product_popup_"]').first.wait_for(
+                timeout=RESULT_TIMEOUT_MS
+            )
             wait_for_photos(page, 1)
+            assert_chat_layout(page)
             capture(page, args.out, "shopping-assistant")
+            for viewport in [{"width": 390, "height": 844}, {"width": 320, "height": 568}]:
+                page.set_viewport_size(viewport)
+                page.wait_for_timeout(250)
+                assert_chat_layout(page)
+            capture(page, args.out, "shopping-assistant-mobile")
 
         browser.close()
 

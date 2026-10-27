@@ -29,9 +29,10 @@ everyone else accessible, and the Evaluation tab scores all eligible customers.
 
 ## MVP interface
 
-Five native pages separate shopping from model inspection: **For you**, **Discover**,
-**Product connections**, **Model quality**, and **Assistant**. Only the active page
-runs its requests. A compact toolbar holds shopping-history and method controls.
+Four native pages separate shopping from model inspection: **For you**, **Discover**,
+**Product connections**, and **Model quality**. **Ask Clothy** opens a floating shopping
+assistant from the bottom-right corner on every page. Only the active page and open
+chat run their requests. A compact toolbar holds shopping-history and method controls.
 Cards group name, price and type below the photo; detailed ranking evidence opens
 on demand. Every card opens a product viewer with related pieces. Selected
 histories persist across navigation.
@@ -87,6 +88,17 @@ Earlier graph theme captures remain available:
 [dark](docs/screenshots/knowledge-graph-dark-desktop.png),
 [light](docs/screenshots/knowledge-graph-light-desktop.png),
 [narrow](docs/screenshots/knowledge-graph-dark-narrow.png).
+
+### Shopping assistant
+
+Open **Ask Clothy** to describe a piece, set a budget, or refine the previous search.
+Replies use the catalog search and show product previews that open the product viewer.
+The conversation stays available while navigating or closing the panel; **New chat**
+clears it. Recent messages provide bounded context, keeping long conversations usable.
+The assistant uses the configured LLM provider; an unavailable provider produces an
+error with a retry path rather than fabricated results.
+
+![Clothy shopping assistant](docs/screenshots/mvp-assistant.jpg)
 
 ## Data
 
@@ -240,7 +252,11 @@ LLM_BASE_URL=                             # set for OpenAI-compatible gateways
 ```
 
 Any OpenAI-compatible gateway (OmniRoute, OpenRouter, LiteLLM, Ollama, vLLM) works with
-`LLM_PROVIDER=openai` plus `LLM_BASE_URL`. Without `LLM_MODEL` every feature except chat still works.
+`LLM_PROVIDER=openai` plus `LLM_BASE_URL`. For a local OmniRoute gateway, set
+`LLM_BASE_URL=http://127.0.0.1:20128/v1`, choose an available gateway model ID for
+`LLM_MODEL`, and keep the gateway key in `.env`. The API uses this configuration
+for both intent extraction and catalog-grounded replies. Without `LLM_MODEL`
+every feature except chat still works.
 
 ## API
 

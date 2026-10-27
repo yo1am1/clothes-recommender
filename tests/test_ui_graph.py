@@ -832,3 +832,69 @@ def test_chat_keeps_long_sessions_within_request_limits(mocked_api, request_bodi
     assert len(app.session_state["chat_history"]) == 56
     assert app.session_state["chat_history"][-1]["content"] == "x" * 4001
     assert payload.history[-2].content == "Show me coat 26"
+
+
+def test_popup_is_lazy_and_disabled_chat_has_recovery(mocked_api):
+    calls, _ = mocked_api
+    app = AppTest.from_string("from clothes_recommender import ui; ui.assistant_popup()").run()
+    assert not app.exception
+    assert calls == []
+    assert not app.chat_input
+    app.session_state["assistant_popup"] = True
+    app.run()
+    assert not app.exception
+    assert any("discover pieces by description or photo" in info.value for info in app.info)
+    assert not app.chat_input
+
+
+def test_popup_keeps_conversation_on_close_and_can_reset(mocked_api, request_bodies):
+    _, overrides = mocked_api
+    overrides["/health"] = (
+        200,
+        {"json": {"status": "ok", "indexed_products": 2, "chat_enabled": True}},
+    )
+    overrides["/chat"] = (200, {"json": {"text": "Try this coat.", "products": [PRODUCT]}})
+    app = AppTest.from_string("from clothes_recommender import ui; ui.assistant_popup()")
+    app.session_state["assistant_popup"] = True
+    app.run()
+    app.chat_input(key="chat_input_popup").set_value("A blue coat").run()
+    assert not app.exception
+    assert json.loads(request_bodies["/chat"][-1]) == {"message": "A blue coat", "history": []}
+    assert len(app.session_state["chat_history"]) == 2
+    assert any(text.value == PRODUCT["name"] for text in app.text)
+    app.button(key="chat_close").click().run()
+    assert not app.chat_input
+    assert len(app.session_state["chat_history"]) == 2
+    app.session_state["assistant_popup"] = True
+    app.run()
+    assert any(text.value == PRODUCT["name"] for text in app.text)
+    app.button(key="chat_view_popup_1_1").click().run()
+    assert not app.exception
+    assert any(header.value == PRODUCT["name"] for header in app.subheader)
+    # Close the product dialog before clearing the conversation.
+    app.run()
+    app.button(key="chat_reset_popup").click().run()
+    assert not app.exception
+    assert app.session_state["chat_history"] == []
+    assert not app.text
+
+
+def test_popup_provider_error_does_not_poison_history(mocked_api, request_bodies):
+    _, overrides = mocked_api
+    overrides["/health"] = (
+        200,
+        {"json": {"status": "ok", "indexed_products": 2, "chat_enabled": True}},
+    )
+    overrides["/chat"] = (502, {"json": {"detail": "Assistant unavailable. Please try again."}})
+    app = AppTest.from_string("from clothes_recommender import ui; ui.assistant_popup()")
+    app.session_state["assistant_popup"] = True
+    app.run()
+    app.chat_input[0].set_value("A blue coat").run()
+    assert not app.exception
+    assert app.error[0].value == "Assistant unavailable. Please try again."
+    assert app.session_state["chat_history"] == []
+    overrides["/chat"] = (200, {"json": {"text": "Try a coat.", "products": []}})
+    app.chat_input[0].set_value("A blue coat").run()
+    assert not app.exception
+    assert json.loads(request_bodies["/chat"][-1])["history"] == []
+    assert len(app.session_state["chat_history"]) == 2

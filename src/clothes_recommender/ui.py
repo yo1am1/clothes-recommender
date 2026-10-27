@@ -880,9 +880,34 @@ def discovery_page() -> None:
         image_search_tab()
 
 
-def chat_tab() -> None:
-    st.title("Shopping assistant")
-    health = call_api("GET", "/health")
+def show_chat_turn(turn: dict, index: int, context: str) -> None:
+    with st.chat_message(turn["role"]):
+        st.markdown(turn["content"])
+        for product in turn.get("products", []):
+            with st.container(
+                key=f"chat_product_{context}_{index}_{product['product_id']}",
+                horizontal=True,
+                vertical_alignment="center",
+            ):
+                if (photo := product_photo(product["product_id"])) is not None:
+                    st.image(photo, width=56)
+                with st.container(gap=None):
+                    st.text(product["name"])
+                    st.caption(f"€{product['price']:.2f} · {product['colour']}")
+                if st.button("View", key=f"chat_view_{context}_{index}_{product['product_id']}"):
+                    product_details(product["product_id"])
+
+
+def reset_chat() -> None:
+    st.session_state["chat_history"] = []
+
+
+def close_assistant() -> None:
+    st.session_state["assistant_popup"] = False
+
+
+def chat_conversation(context: str) -> None:
+    health = st.session_state.get("service_health") or call_api("GET", "/health")
     if health is None:
         return
     if not health.get("chat_enabled"):
@@ -892,30 +917,68 @@ def chat_tab() -> None:
         )
         return
     history: list[dict] = st.session_state.setdefault("chat_history", [])
-    for index, turn in enumerate(history):
-        with st.chat_message(turn["role"]):
-            st.markdown(turn["content"])
-            if turn.get("products"):
-                show_products(turn["products"], context=f"chat_{index}")
+    transcript = st.container(height=360, border=False, autoscroll=True, key=f"chat_log_{context}")
+    with transcript:
+        if not history:
+            with st.chat_message("assistant"):
+                st.markdown(
+                    "Tell me what you're looking for, including a colour, occasion or budget. "
+                    "Try **white sneakers under €40**."
+                )
+        for index, turn in enumerate(history):
+            show_chat_turn(turn, index, context)
 
     message = st.chat_input(
-        "Ask Clothy, e.g. 'black wide-leg trousers for women under €40'", max_chars=2000
+        "Describe a piece or ask a follow-up…", key=f"chat_input_{context}", max_chars=2000
     )
     if not message:
         return
-    with st.chat_message("user"):
-        st.markdown(message)
-    with st.chat_message("assistant"), st.spinner("Thinking..."):
-        past_turns = [
-            {"role": turn["role"], "content": turn["content"][:4000]} for turn in history[-10:]
-        ]
-        reply = call_api("POST", "/chat", json={"message": message, "history": past_turns})
+    user_turn = {"role": "user", "content": message}
+    with transcript:
+        show_chat_turn(user_turn, len(history), context)
+        with st.spinner("Finding pieces for you…"):
+            past_turns = [
+                {"role": turn["role"], "content": turn["content"][:4000]} for turn in history[-10:]
+            ]
+            reply = call_api("POST", "/chat", json={"message": message, "history": past_turns})
         if reply is None:
+            st.caption("Please send your message again to retry.")
             return
-        st.markdown(reply["text"])
-        show_products(reply["products"], context="chat_reply")
-    history.append({"role": "user", "content": message})
-    history.append({"role": "assistant", "content": reply["text"], "products": reply["products"]})
+        assistant_turn = {
+            "role": "assistant",
+            "content": reply["text"],
+            "products": reply["products"],
+        }
+        show_chat_turn(assistant_turn, len(history) + 1, context)
+    history.extend([user_turn, assistant_turn])
+
+
+def chat_tab() -> None:
+    st.title("Shopping assistant")
+    st.button("New chat", key="chat_reset_page", on_click=reset_chat)
+    chat_conversation("page")
+
+
+@st.fragment
+def assistant_popup() -> None:
+    with st.container(key="assistant_launcher"):
+        popup = st.popover(
+            "Ask Clothy",
+            icon=":material/chat_bubble:",
+            type="primary",
+            key="assistant_popup",
+            on_change="rerun",
+        )
+    if not popup.open:
+        return
+    with popup, st.container(key="assistant_panel"):
+        with st.container(horizontal=True, vertical_alignment="center"):
+            st.subheader("Clothy", width="stretch", anchor=False)
+            st.button("New chat", key="chat_reset_popup", type="tertiary", on_click=reset_chat)
+            st.button("Close", key="chat_close", type="tertiary", on_click=close_assistant)
+        st.caption("Find pieces. Refine by colour, style or budget.")
+        chat_conversation("popup")
+        st.caption("H&M research catalog · Prices are approximate. Current stock is unknown.")
 
 
 def main() -> None:
@@ -935,11 +998,12 @@ def main() -> None:
             st.Page(discovery_page, title="Discover", url_path="discover"),
             st.Page(knowledge_graph_tab, title="Product connections", url_path="connections"),
             st.Page(evaluation_tab, title="Model quality", url_path="quality"),
-            st.Page(chat_tab, title="Assistant", url_path="assistant"),
+            st.Page(chat_tab, title="Assistant", url_path="assistant", visibility="hidden"),
         ],
         position="top",
     )
     page.run()
+    assistant_popup()
     with st.container(key="catalog_note"):
         indexed = f"{health['indexed_products']:,}"
         total = f" of {health['catalog_products']:,}" if health.get("catalog_products") else ""

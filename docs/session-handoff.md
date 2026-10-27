@@ -1,3 +1,45 @@
+# Assistant and reliability update — 2026-10-27
+
+The current branch remains `feat/image-search-and-evaluation`. The system audit
+and independent reviews used three visible Codex workers in Orca. Five verified
+failures were repaired separately: rejected photos are validated before preview;
+chat context stays within API limits during long conversations; specific two-level
+bag classes support alternatives; startup rejects incompatible vector dimensions
+and closes failed service construction; index resume refreshes filtering metadata
+without re-encoding existing photos. Image/model changes and removed catalog IDs
+still require explicit index recreation. No current model or evaluation was tuned
+as part of these repairs.
+
+**Ask Clothy** now opens a native floating chat panel on every page. Its fragment
+keeps chat interactions separate from page work. Conversation persists on close
+and navigation, New chat clears it, and compact product previews open the existing
+viewer. The historical `/assistant` route remains available but is hidden from
+navigation. Disabled and failed-provider states remain explicit.
+
+The local preview at UI port 18511/API port 18710 now uses the repository's configured
+OpenAI-compatible OmniRoute gateway; no credentials or provider/session state are
+committed. Real queries returned white Menswear sneakers below EUR40, and a
+follow-up narrowed them below EUR20. Desktop feed/panel readiness measured about
+0.45/0.27 seconds in the warm local browser; these small checks are not a load test.
+Replies took roughly four seconds, including both model calls and retrieval.
+
+Validation: 340 offline tests passed, one integration test deselected; Ruff passed.
+Chrome exercised real provider replies, follow-up constraints, navigation/close
+persistence, product dialogs, keyboard Escape/focus and full-transcript layouts at
+1368, 768, 390 and 320 px. The screenshot script includes panel/input bounds checks
+for narrow layouts. Screen readers, software keyboards, other browser engines,
+remote Qdrant and concurrent-load behavior were not exercised.
+
+Recommendation tuning is next: baseline learned MAP@12 remains 0.03018, hit rate 13.9%,
+macro recall 7.6%, with the earlier paired comparison interval crossing zero.
+Candidate reach and reranking both need work. Use earlier rolling windows for
+selection and disclose that the final September 16–22 result has already been
+inspected. Keep data/models/index/evaluation artifacts outside Git.
+
+The earlier handoff is retained below as history.
+
+---
+
 # MVP continuation — 2026-10-27
 
 The current branch is `feat/image-search-and-evaluation`. Completed ranking changes
