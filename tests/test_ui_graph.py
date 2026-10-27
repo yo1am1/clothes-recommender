@@ -2,6 +2,7 @@
 
 import io
 import json
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -152,8 +153,10 @@ def mocked_api(monkeypatch, request_bodies):
     client = httpx.Client(base_url="http://offline.test", transport=httpx.MockTransport(request))
     monkeypatch.setattr(ui, "api_client", lambda: client)
     ui.product_photo.clear()
+    ui.query_photo.clear()
     yield calls, overrides
     ui.product_photo.clear()
+    ui.query_photo.clear()
     client.close()
 
 
@@ -576,9 +579,9 @@ def test_primary_reason_does_not_repeat_technical_attributes(evidence, expected)
 HIT = {"product": RECOMMENDED, "score": 0.31, "reasons": []}
 
 
-def _jpeg() -> bytes:
+def _jpeg(colour="navy") -> bytes:
     output = io.BytesIO()
-    Image.new("RGB", (6, 9), "navy").save(output, format="JPEG")
+    Image.new("RGB", (6, 9), colour).save(output, format="JPEG")
     return output.getvalue()
 
 
@@ -600,19 +603,46 @@ def test_text_search_sends_query_and_section(mocked_api, request_bodies):
     }
 
 
-def test_example_photo_runs_an_image_search(mocked_api, monkeypatch):
+@pytest.mark.parametrize("has_upload", [False, True])
+def test_example_photo_runs_an_image_search(mocked_api, request_bodies, monkeypatch, has_upload):
     calls, overrides = mocked_api
-    example = {"photo_id": 900, "name": "Denim jacket", "product_type": "Jacket", "colour": "Blue"}
-    overrides["/search/examples"] = (200, {"json": [example]})
+    examples = [
+        {"photo_id": 900, "name": "Denim jacket", "product_type": "Jacket", "colour": "Blue"},
+        {"photo_id": 901, "name": "White sneakers", "product_type": "Sneakers", "colour": "White"},
+    ]
+    photos = {900: JPEG, 901: _jpeg("white")}
+    overrides["/search/examples"] = (200, {"json": examples})
     overrides["/search/image"] = (200, {"json": [HIT]})
-    monkeypatch.setattr(ui, "query_photo", lambda photo_id: JPEG)
+    for photo_id, content in photos.items():
+        overrides[f"/search/examples/{photo_id}/image"] = (200, {"content": content})
+    uploaded = _jpeg("red")
+    if has_upload:
+        original_keys = []
+
+        def file_uploader(*args, key=None, **kwargs):
+            # A new widget identity clears the previous upload in Streamlit.
+            original_keys.append(key)
+            if key == original_keys[0]:
+                return SimpleNamespace(name="uploaded.jpg", getvalue=lambda: uploaded)
+            return None
+
+        monkeypatch.setattr(ui.st, "file_uploader", file_uploader)
     app = AppTest.from_function(run_ui).run()
     assert not app.exception, app.exception
-    assert not any(path == "/search/image" for path, _ in calls)
-    app.button(key="query_photo_900").click().run()
-    assert not app.exception
-    assert ("/search/image", {"top_k": "9"}) in calls
-    assert any(text.value == "Wool coat" for text in app.text)
+    if has_upload:
+        assert uploaded in request_bodies["/search/image"][-1]
+    else:
+        assert not any(path == "/search/image" for path, _ in calls)
+    for photo_id, content in photos.items():
+        app.button(key=f"query_photo_{photo_id}").click().run()
+        assert not app.exception
+        assert ("/search/image", {"top_k": "9"}) in calls
+        body = request_bodies["/search/image"][-1]
+        assert f'filename="{photo_id}.jpg"'.encode() in body
+        uploaded_content = body.split(b"\r\n\r\n", 1)[1].rsplit(b"\r\n", 2)[0]
+        assert uploaded_content == content
+        assert any(text.value == "Wool coat" for text in app.text)
+    assert not any(path == "/search/text" for path, _ in calls)
 
 
 def test_graph_tab_can_show_visually_similar_products(mocked_api):

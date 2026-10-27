@@ -604,12 +604,22 @@ def text_search_tab() -> None:
 
 def choose_query_photo(photo_id: int) -> None:
     st.session_state["query_photo_id"] = photo_id
+    # A new uploader key clears the old file without writing read-only widget state.
+    st.session_state["photo_upload_version"] = st.session_state.get("photo_upload_version", 0) + 1
+
+
+def choose_uploaded_photo() -> None:
+    st.session_state.pop("query_photo_id", None)
 
 
 def image_search_tab() -> None:
     st.caption("Find similar pieces from a garment photo. Upload a PNG or JPEG, or try an example.")
     upload = st.file_uploader(
-        "Upload a photo of a garment", type=["png", "jpg", "jpeg"], max_upload_size=10
+        "Upload a photo of a garment",
+        type=["png", "jpg", "jpeg"],
+        max_upload_size=10,
+        key=f"photo_upload_{st.session_state.get('photo_upload_version', 0)}",
+        on_change=choose_uploaded_photo,
     )
     examples = call_api("GET", "/search/examples") or []
     if examples:
