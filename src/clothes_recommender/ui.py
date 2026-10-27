@@ -898,13 +898,17 @@ def chat_tab() -> None:
             if turn.get("products"):
                 show_products(turn["products"], context=f"chat_{index}")
 
-    message = st.chat_input("Ask Clothy, e.g. 'black wide-leg trousers for women under €40'")
+    message = st.chat_input(
+        "Ask Clothy, e.g. 'black wide-leg trousers for women under €40'", max_chars=2000
+    )
     if not message:
         return
     with st.chat_message("user"):
         st.markdown(message)
     with st.chat_message("assistant"), st.spinner("Thinking..."):
-        past_turns = [{"role": t["role"], "content": t["content"]} for t in history]
+        past_turns = [
+            {"role": turn["role"], "content": turn["content"][:4000]} for turn in history[-10:]
+        ]
         reply = call_api("POST", "/chat", json={"message": message, "history": past_turns})
         if reply is None:
             return

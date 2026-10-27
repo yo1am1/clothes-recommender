@@ -810,3 +810,25 @@ def test_rejected_photo_is_not_decoded_for_preview(mocked_api, monkeypatch, stat
     assert not app.exception
     assert app.error[0].value == detail
     assert not app.get("imgs")
+
+
+def test_chat_keeps_long_sessions_within_request_limits(mocked_api, request_bodies):
+    from clothes_recommender.api import ChatRequest
+
+    _, overrides = mocked_api
+    overrides["/health"] = (
+        200,
+        {"json": {"status": "ok", "indexed_products": 2, "chat_enabled": True}},
+    )
+    overrides["/chat"] = (200, {"json": {"text": "x" * 4001, "products": []}})
+    app = AppTest.from_string("from clothes_recommender import ui; ui.chat_tab()").run()
+    assert app.chat_input[0].proto.max_chars == 2000
+    for number in range(28):
+        app.chat_input[0].set_value(f"Show me coat {number}").run()
+        assert not app.exception
+        payload = ChatRequest.model_validate_json(request_bodies["/chat"][-1])
+        assert len(payload.history) == min(number * 2, 10)
+        assert all(len(turn.content) <= 4000 for turn in payload.history)
+    assert len(app.session_state["chat_history"]) == 56
+    assert app.session_state["chat_history"][-1]["content"] == "x" * 4001
+    assert payload.history[-2].content == "Show me coat 26"
