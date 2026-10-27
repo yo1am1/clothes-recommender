@@ -45,6 +45,41 @@ def test_upsert_rejects_mismatched_vectors(
         vector_store.upsert(sample_products, fake_encoder.encode_texts(["only one"]))
 
 
+def test_refresh_payloads_updates_all_filters_in_batches_without_changing_vectors(
+    vector_store: ProductVectorStore, fake_encoder: Encoder, sample_products: list[Product]
+):
+    before = vector_store.get_vectors([product.product_id for product in sample_products])
+    updated = [
+        product.model_copy(
+            update={
+                "product_type": " Updated coat ",
+                "product_group": " Updated outerwear ",
+                "section": " Updated section ",
+                "colour": " Updated blue ",
+                "price": product.price + 100,
+            }
+        )
+        for product in sample_products
+    ]
+
+    vector_store.refresh_payloads(updated, batch_size=2)
+
+    for product in updated:
+        product_filter = ProductFilter(
+            product_types=("updated coat",),
+            product_groups=("updated outerwear",),
+            sections=("updated section",),
+            colours=("updated blue",),
+            min_price=product.price,
+            max_price=product.price,
+        )
+        assert _matching_ids(vector_store, fake_encoder, product_filter) == {product.product_id}
+    assert not _matching_ids(vector_store, fake_encoder, ProductFilter(max_price=100))
+    assert vector_store.count() == len(sample_products)
+    for pid, vector in vector_store.get_vectors(list(before)).items():
+        np.testing.assert_array_equal(vector, before[pid])
+
+
 def test_search_ranks_exact_match_first(vector_store: ProductVectorStore, fake_encoder: Encoder):
     query = fake_encoder.encode_texts(["Floral Summer Dress"])[0]
 

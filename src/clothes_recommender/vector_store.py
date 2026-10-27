@@ -99,6 +99,23 @@ class ProductVectorStore:
         for batch in batched(points, batch_size, strict=False):
             self._client.upsert(self._collection, points=list(batch))
 
+    def refresh_payloads(self, products: Sequence[Product], batch_size: int = 256) -> None:
+        """Update filtering metadata without changing existing image vectors."""
+        self._require_collection()
+        for batch in batched(products, batch_size, strict=False):
+            self._client.batch_update_points(
+                self._collection,
+                update_operations=[
+                    models.SetPayloadOperation(
+                        set_payload=models.SetPayload(
+                            payload=_payload(product), points=[product.product_id]
+                        )
+                    )
+                    for product in batch
+                ],
+                wait=True,
+            )
+
     def search(
         self, vector: np.ndarray, top_k: int = 10, product_filter: ProductFilter | None = None
     ) -> list[ScoredProduct]:

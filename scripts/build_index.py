@@ -2,7 +2,7 @@
 
 Usage: uv run python -m scripts.build_index [--limit N] [--batch-size B] [--recreate]
 
-Re-running resumes: products already in the collection are skipped unless --recreate.
+Re-running refreshes catalog metadata and skips existing image vectors unless --recreate.
 """
 
 import argparse
@@ -94,8 +94,6 @@ def main(argv: Sequence[str] | None = None) -> None:
     settings = get_settings()
 
     products = list(ProductCatalog.from_parquet(settings.products_path))
-    if args.limit is not None:
-        products = select_demo_subset(products, args.limit)
 
     encoder = ClipEncoder(settings.clip_model_name)
     store = ProductVectorStore.from_settings(settings)
@@ -105,6 +103,9 @@ def main(argv: Sequence[str] | None = None) -> None:
     store.ensure_collection(encoder.dimension)
 
     already_indexed = store.indexed_ids()
+    store.refresh_payloads([p for p in products if p.product_id in already_indexed])
+    if args.limit is not None:
+        products = select_demo_subset(products, args.limit)
     pending = [p for p in products if p.product_id not in already_indexed]
     indexed = index_products(pending, encoder, store, settings.images_dir, args.batch_size)
     logger.info(
