@@ -14,9 +14,40 @@ h2, h3 { letter-spacing: -.025em; }
 }
 [class*="st-key-product_card_"] [data-testid="stExpander"] { border: 0; }
 [class*="st-key-product_card_"] button { min-height: 2.75rem; }
+/* Search controls form one task; examples and catalog context stay secondary. */
+.st-key-discovery_mode { margin-block-end: .75rem; }
+.st-key-discovery_mode button { min-height: 2.75rem; padding-inline: 1.25rem; }
+:is(.st-key-text_search_panel, .st-key-photo_search_panel) {
+    background: color-mix(in srgb, currentColor 4%, transparent);
+    border-color: color-mix(in srgb, currentColor 16%, transparent);
+    border-radius: .65rem;
+    padding: 1.5rem 1.75rem;
+}
+:is(.st-key-text_search_panel, .st-key-photo_search_panel) h3 {
+    font: 600 1.35rem/1.4 system-ui, sans-serif;
+    letter-spacing: -.025em;
+    padding-block: 0 .5rem;
+}
+.st-key-text_search_panel input { font-size: 1.05rem; }
+.st-key-description_search_submit button { min-height: 3rem; }
+.st-key-text_example button { min-height: 2.75rem; font-size: .875rem; }
+:is(.st-key-text_search_results, .st-key-photo_search_results) { margin-block-start: 1.5rem; }
+.st-key-photo_search_panel [data-testid="stImage"] img {
+    width: 100%; aspect-ratio: 3 / 4; object-fit: contain; background: #fff;
+}
+.st-key-catalog_note {
+    margin-block-start: 2rem;
+    padding-block-start: 1rem;
+    border-block-start: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
 @media (max-width: 640px) {
     .stMainBlockContainer { padding-top: 3.5rem; }
     .clothy-brand { font-size: 1.8rem; }
     .clothy-brand span { margin-left: .75rem; font-size: .55rem; }
     [class*="st-key-product_card_"] { max-width: 100%; }
+    :is(.st-key-text_search_panel, .st-key-photo_search_panel) { padding: 1rem; }
+    .st-key-photo_search_panel [data-testid="stHorizontalBlock"] {
+        display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .st-key-photo_search_panel [data-testid="stColumn"] { width: auto; min-width: 0; }
 }

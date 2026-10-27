@@ -593,7 +593,8 @@ def test_text_search_sends_query_and_section(mocked_api, request_bodies):
     overrides["/search/text"] = (200, {"json": [HIT]})
     app = AppTest.from_function(run_ui).run()
     app.selectbox[-1].select("Menswear")  # the search tab's section filter
-    app.text_input(key="text_query").input("wool coat").run()
+    app.text_input(key="text_query").input("wool coat")
+    app.button(key="description_search_submit").click().run()
     assert not app.exception
     assert any(text.value == "Wool coat" for text in app.text)
     assert json.loads(request_bodies["/search/text"][-1]) == {
@@ -601,6 +602,26 @@ def test_text_search_sends_query_and_section(mocked_api, request_bodies):
         "top_k": 9,
         "section": "Menswear",
     }
+
+
+def test_text_example_searches_immediately_and_empty_submission_does_not_search(
+    mocked_api, request_bodies
+):
+    calls, overrides = mocked_api
+    overrides["/search/text"] = (200, {"json": [HIT]})
+    app = AppTest.from_function(run_ui).run()
+    app.button(key="description_search_submit").click().run()
+    assert not any(path == "/search/text" for path, _ in calls)
+    app.selectbox[-1].select("Menswear")
+    app.button(key="text_example_2").click().run()
+    assert not app.exception
+    assert app.text_input(key="text_query").value == "chunky knit cardigan"
+    assert json.loads(request_bodies["/search/text"][-1]) == {
+        "query": "chunky knit cardigan",
+        "top_k": 9,
+        "section": "Menswear",
+    }
+    assert any(heading.value == "Matching pieces" for heading in app.subheader)
 
 
 @pytest.mark.parametrize("has_upload", [False, True])
@@ -643,6 +664,20 @@ def test_example_photo_runs_an_image_search(mocked_api, request_bodies, monkeypa
         assert uploaded_content == content
         assert any(text.value == "Wool coat" for text in app.text)
     assert not any(path == "/search/text" for path, _ in calls)
+
+
+def test_discover_switches_between_description_and_photo_controls(mocked_api):
+    calls, _ = mocked_api
+    app = AppTest.from_string("from clothes_recommender import ui; ui.discovery_page()").run()
+    assert not app.exception
+    assert app.text_input(key="text_query")
+    assert not app.get("file_uploader")
+    assert not any(path == "/search/examples" for path, _ in calls)
+    app.button_group(key="discovery_mode").set_value("Photo").run()
+    assert not app.exception
+    assert not app.text_input
+    assert app.get("file_uploader")
+    assert any(path == "/search/examples" for path, _ in calls)
 
 
 def test_graph_tab_can_show_visually_similar_products(mocked_api):

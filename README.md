@@ -33,9 +33,11 @@ Five native pages separate shopping from model inspection: **For you**, **Discov
 **Product connections**, **Model quality**, and **Assistant**. Only the active page
 runs its requests. Shopping-history and method controls stay secondary to product
 photos; every card opens details. Selected histories persist across navigation.
-Text and photo search share one discovery workspace, with section filtering,
-query examples and a 10 MB upload limit. Missing images, empty results, unavailable
-services and an unconfigured assistant have explicit states.
+Text and photo search share one discovery workspace. A mode switch leads to a
+focused search panel, with section filtering, query examples and a 10 MB upload limit.
+Matching pieces appear below the controls; catalog context stays in the footer.
+Missing images, empty results, unavailable services and an unconfigured assistant
+have explicit states.
 
 ### Personalized discovery
 
@@ -61,12 +63,14 @@ established superiority.
 
 ### Search by description or photo
 
-"Striped summer dress" retrieves product photos by visual meaning. The photo
-example is a grey sweater outside the catalog, so results are different products.
+Describe a piece and select **Search photos**, or start with a query example.
+Photo search accepts uploads or example garments from outside the catalog.
 
-![Clothy description search](docs/screenshots/mvp-discover-text.jpg)
+![Clothy discovery workspace](docs/screenshots/mvp-discover-start.jpg)
 
-![Clothy photo search](docs/screenshots/mvp-discover-photo.jpg)
+See [description matches](docs/screenshots/mvp-discover-text.jpg),
+[photo matches](docs/screenshots/mvp-discover-photo.jpg), and the
+[phone layout](docs/screenshots/mvp-discover-mobile.jpg).
 
 Earlier graph theme captures remain available:
 [dark](docs/screenshots/knowledge-graph-dark-desktop.png),

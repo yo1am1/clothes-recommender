@@ -136,7 +136,7 @@ def main() -> None:
         if args.query_image:
             page.locator('input[type="file"]').set_input_files(args.query_image)
         else:
-            page.get_by_text("pick an example photo").wait_for(timeout=RESULT_TIMEOUT_MS)
+            page.get_by_text("pick an example photo", exact=False).click(timeout=RESULT_TIMEOUT_MS)
             page.locator('[class*="st-key-query_photo_"] button').first.click()
         page.get_by_text("Query photo").wait_for(timeout=RESULT_TIMEOUT_MS)
         wait_for_rerun(page)

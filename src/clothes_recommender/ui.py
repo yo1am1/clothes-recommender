@@ -15,11 +15,8 @@ from clothes_recommender.config import get_settings
 GRID_COLUMNS = 3
 QUERY_PHOTO_COLUMNS = 6
 EXAMPLE_QUERIES = [
-    "black leather biker jacket",
     "striped summer dress",
-    "kids t-shirt with a dinosaur print",
     "white sneakers",
-    "floral bikini",
     "chunky knit cardigan",
 ]
 STRATEGY_NAMES = {
@@ -575,31 +572,53 @@ def knowledge_graph_tab() -> None:
         show_hits(related, context="graph_related")
 
 
-def use_example_query() -> None:
-    if example := st.session_state.get("text_example"):
-        st.session_state["text_query"] = example
+def use_example_query(query: str) -> None:
+    st.session_state["text_query"] = query
 
 
 def text_search_tab() -> None:
-    st.caption(
-        "Search product photos in everyday language. Describe a color, shape, material or occasion."
-    )
-    st.pills("Try an example", EXAMPLE_QUERIES, key="text_example", on_change=use_example_query)
-    left, right = st.columns([0.7, 0.3])
-    with left:
-        query = st.text_input(
-            "Describe what you are looking for", key="text_query", placeholder=EXAMPLE_QUERIES[0]
-        )
-    with right:
-        sections = call_api("GET", "/sections") or []
-        section = st.selectbox("Section", [None, *sections], format_func=lambda s: s or "All")
-    if query.strip():
-        with st.spinner("Searching photos…"):
-            show_hits(
-                call_api(
-                    "POST", "/search/text", json={"query": query, "top_k": 9, "section": section}
+    with st.container(key="text_search_panel", border=True):
+        st.subheader("Describe your piece")
+        with st.form("description_search", border=False):
+            left, middle, right = st.columns([0.6, 0.23, 0.17], vertical_alignment="bottom")
+            with left:
+                query = st.text_input(
+                    "Describe what you are looking for",
+                    key="text_query",
+                    placeholder="e.g. a chunky cream cardigan",
                 )
-            )
+            with middle:
+                sections = call_api("GET", "/sections") or []
+                section = st.selectbox(
+                    "Section", [None, *sections], format_func=lambda s: s or "All"
+                )
+            with right:
+                st.form_submit_button(
+                    "Search photos",
+                    type="primary",
+                    key="description_search_submit",
+                    width="stretch",
+                )
+            st.caption("Or try an example")
+            with st.container(key="text_example", horizontal=True):
+                for index, example in enumerate(EXAMPLE_QUERIES):
+                    st.form_submit_button(
+                        example,
+                        key=f"text_example_{index}",
+                        on_click=use_example_query,
+                        args=(example,),
+                    )
+    if query.strip():
+        with st.container(key="text_search_results"):
+            st.subheader("Matching pieces")
+            with st.spinner("Searching photos…"):
+                show_hits(
+                    call_api(
+                        "POST",
+                        "/search/text",
+                        json={"query": query, "top_k": 9, "section": section},
+                    )
+                )
 
 
 def choose_query_photo(photo_id: int) -> None:
@@ -613,38 +632,37 @@ def choose_uploaded_photo() -> None:
 
 
 def image_search_tab() -> None:
-    st.caption("Find similar pieces from a garment photo. Upload a PNG or JPEG, or try an example.")
-    upload = st.file_uploader(
-        "Upload a photo of a garment",
-        type=["png", "jpg", "jpeg"],
-        max_upload_size=10,
-        key=f"photo_upload_{st.session_state.get('photo_upload_version', 0)}",
-        on_change=choose_uploaded_photo,
-    )
-    examples = call_api("GET", "/search/examples") or []
-    if examples:
-        chosen = st.session_state.get("query_photo_id") is not None
-        with st.expander("…or pick an example photo", expanded=upload is None and not chosen):
-            st.caption(
-                "These are H&M garments that are not in this catalog, so every result is a "
-                "different product that looks alike."
-            )
-            for start in range(0, len(examples), QUERY_PHOTO_COLUMNS):
-                columns = st.columns(QUERY_PHOTO_COLUMNS)
-                for column, example in zip(
-                    columns, examples[start : start + QUERY_PHOTO_COLUMNS], strict=False
-                ):
-                    with column:
-                        if (photo := query_photo(example["photo_id"])) is not None:
-                            st.image(photo, width="stretch")
-                        st.button(
-                            example["product_type"],
-                            key=f"query_photo_{example['photo_id']}",
-                            help=f"{example['name']} · {example['colour']}",
-                            on_click=choose_query_photo,
-                            args=(example["photo_id"],),
-                            width="stretch",
-                        )
+    with st.container(key="photo_search_panel", border=True):
+        st.subheader("Start with a photo")
+        upload = st.file_uploader(
+            "Upload a photo of a garment",
+            type=["png", "jpg", "jpeg"],
+            max_upload_size=10,
+            key=f"photo_upload_{st.session_state.get('photo_upload_version', 0)}",
+            on_change=choose_uploaded_photo,
+        )
+        examples = call_api("GET", "/search/examples") or []
+        if examples:
+            with st.expander("Or pick an example photo"):
+                st.caption(
+                    "Examples are garments outside this catalog. Results show similar products."
+                )
+                for start in range(0, len(examples), QUERY_PHOTO_COLUMNS):
+                    columns = st.columns(QUERY_PHOTO_COLUMNS)
+                    for column, example in zip(
+                        columns, examples[start : start + QUERY_PHOTO_COLUMNS], strict=False
+                    ):
+                        with column:
+                            if (photo := query_photo(example["photo_id"])) is not None:
+                                st.image(photo, width="stretch")
+                            st.button(
+                                example["product_type"],
+                                key=f"query_photo_{example['photo_id']}",
+                                help=f"{example['name']} · {example['colour']}",
+                                on_click=choose_query_photo,
+                                args=(example["photo_id"],),
+                                width="stretch",
+                            )
 
     if upload is not None:
         name, content = upload.name, upload.getvalue()
@@ -655,13 +673,17 @@ def image_search_tab() -> None:
     if content is None:
         st.error("The example photo is no longer available.")
         return
-    left, right = st.columns([0.2, 0.8])
-    with left:
-        st.image(content, caption="Query photo", width="stretch")
-    with right, st.spinner("Searching photos…"):
-        show_hits(
-            call_api("POST", "/search/image", params={"top_k": 9}, files={"file": (name, content)})
-        )
+    with st.container(key="photo_search_results"):
+        st.subheader("Visually similar pieces")
+        left, right = st.columns([0.2, 0.8])
+        with left:
+            st.image(content, caption="Query photo", width="stretch")
+        with right, st.spinner("Searching photos…"):
+            show_hits(
+                call_api(
+                    "POST", "/search/image", params={"top_k": 9}, files={"file": (name, content)}
+                )
+            )
 
 
 def evaluation_chart_spec(rows: list[dict], baseline: float | None) -> dict:
@@ -825,8 +847,14 @@ def evaluation_tab() -> None:
 
 def discovery_page() -> None:
     st.title("Discover")
-    st.caption("Describe a piece you have in mind, or start with a photo.")
-    mode = st.radio("Search with", ["Description", "Photo"], horizontal=True, key="discovery_mode")
+    mode = st.segmented_control(
+        "Search with",
+        ["Description", "Photo"],
+        default="Description",
+        required=True,
+        key="discovery_mode",
+        label_visibility="collapsed",
+    )
     if mode == "Description":
         text_search_tab()
     else:
@@ -877,9 +905,6 @@ def main() -> None:
         if st.button("Retry connection"):
             st.rerun()
         return
-    indexed = f"{health['indexed_products']:,}"
-    total = f" of {health['catalog_products']:,}" if health.get("catalog_products") else ""
-    st.caption(f"H&M 2020 · Photo search: {indexed}{total} pieces")
     st.session_state["service_health"] = health
     page = st.navigation(
         [
@@ -892,6 +917,10 @@ def main() -> None:
         position="top",
     )
     page.run()
+    with st.container(key="catalog_note"):
+        indexed = f"{health['indexed_products']:,}"
+        total = f" of {health['catalog_products']:,}" if health.get("catalog_products") else ""
+        st.caption(f"H&M 2020 research catalog · Photo search: {indexed}{total} pieces")
 
 
 if __name__ == "__main__":
