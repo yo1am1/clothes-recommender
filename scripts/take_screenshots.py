@@ -76,7 +76,29 @@ def wait_for_photos(page: Page, minimum: int) -> None:
     page.wait_for_function(_VISIBLE_PHOTOS_LOADED, arg=minimum, timeout=RESULT_TIMEOUT_MS)
 
 
+def assert_card_alignment(page: Page) -> None:
+    """Cards in one row must share a bottom edge and action baseline."""
+    cards = page.locator('[class*="st-key-product_card_"]').evaluate_all(
+        """elements => elements.map(element => {
+            const card = element.getBoundingClientRect();
+            const action = element.querySelector('[data-testid="stButton"] button')
+                .getBoundingClientRect();
+            return {top: card.top, bottom: card.bottom, actionBottom: action.bottom};
+        })"""
+    )
+    previous = None
+    for card in cards:
+        if previous is not None and abs(card["top"] - previous["top"]) < 1:
+            assert abs(card["bottom"] - previous["bottom"]) < 1, "Uneven product card heights"
+            assert abs(card["actionBottom"] - previous["actionBottom"]) < 1, (
+                "Uneven product actions"
+            )
+        previous = card
+
+
 def capture(page: Page, out: Path, name: str) -> None:
+    wait_for_rerun(page)
+    assert_card_alignment(page)
     # JPEG: photo grids come out about 3x smaller than PNG, which keeps re-captures cheap in git.
     path = out / f"{name}.jpg"
     page.screenshot(path=path, quality=85)

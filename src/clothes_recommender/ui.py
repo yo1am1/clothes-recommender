@@ -110,7 +110,9 @@ def show_products(
             i = start + offset
             with (
                 columns[offset],
-                st.container(key=f"product_card_{context}_{product['product_id']}_{i}"),
+                st.container(
+                    key=f"product_card_{context}_{product['product_id']}_{i}", height="stretch"
+                ),
             ):
                 if (photo := product_photo(product["product_id"])) is not None:
                     st.image(photo, width="stretch")
@@ -126,6 +128,7 @@ def show_products(
                 evidence = reasons[i] if reasons is not None else []
                 if reason := recommendation_reason(evidence):
                     st.caption(reason)
+                st.space("stretch")
                 if scores is not None or evidence:
                     with st.expander("Recommendation details"):
                         if scores is not None:
