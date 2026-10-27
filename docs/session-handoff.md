@@ -1,3 +1,48 @@
+# MVP continuation — 2026-10-27
+
+The current branch is `feat/image-search-and-evaluation`. Completed ranking changes
+were published individually: `8ece635` repeat baseline and metrics, `e6758fc` sparse
+collaborative scoring, `bbe0c27` learned ranking and measured evidence. The UI is
+rebuilt as native Streamlit pages, with real discovery, product details and a
+quality page. See [recommendation audit](recommendation-audit.md) for definitions,
+validation windows, final metrics, uncertainty and reproduction commands.
+
+Local prepared data is `data/mvp`: 5,000 users, 14,300 products, 59,040 sample
+purchases, 3,035,225 crowd purchases and 757,633 links, reproduced from the cached
+H&M shard. Its model trains through September 15; the September 16–22 result is
+0.03018 MAP@12 / 13.9% hit rate / 7.6% recall. Deterministic buy-again reaches
+0.02484 / 11.1% / 6.0%. The 95% paired MAP interval crosses zero, so the single
+week does not establish superiority. No model parameters were adjusted afterward.
+
+The local image index holds 3,537 products. Bulk exact-photo retrieval continues
+separately; source photos, data, index, model and result JSON are ignored local
+artifacts. New downloads do not refresh an index already opened by the API.
+Stop the API before resuming `scripts.build_index`, then restart it. The existing
+repository-level `.qdrant` index was preserved; this preview uses `data/mvp/qdrant`.
+Query examples contain twelve out-of-catalog photos.
+
+Preview: UI http://127.0.0.1:18511, API http://127.0.0.1:18710. The preview's assistant
+is explicitly disabled; no live provider call ran. Cached CLIP handles text/photo
+search. To reproduce the preview without the private temporary launcher, set
+`DATA_DIR=data/mvp QDRANT_PATH=data/mvp/qdrant`, start the normal API and point the
+UI's `API_URL` at it. Normal `.env` loading applies to those commands; configure
+optional providers deliberately.
+
+Browser verification exercised the learned feed, profile restoration, product
+dialog, real description/photo retrieval, graph navigation, visible quality
+uncertainty, disabled assistant, and 1440 px / 390 px layouts. No browser errors
+or page-level mobile overflow were observed. The final offline suite passed 313 tests
+with one real-model integration test deselected; Ruff passed. The updated screenshot
+command completed against the real API/UI. Package inspection confirms the
+stylesheet ships in the wheel. Native Herdr was unavailable, so no hidden
+teammates were created. The Docker image rebuilt successfully; imports, bundled
+stylesheet, non-root execution and data exclusion passed with networking disabled.
+No live provider check ran.
+
+The previous handoff is retained below as history.
+
+---
+
 # Session handoff — 2026-10-25
 
 The image pause from 2026-10-21 is over: product photos, text and image search, visually

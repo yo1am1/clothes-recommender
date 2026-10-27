@@ -1,6 +1,6 @@
 # Clothy: multimodal fashion recommender
 
-Clothy is an end-to-end recommender built on real H&M purchase data. It combines CLIP vector
+Clothy is a fashion-discovery MVP built on real H&M purchase data. It combines CLIP vector
 search, classic and graph recommendations, and an LLM shopping assistant:
 
 | Feature | How it works |
@@ -27,52 +27,48 @@ their main product group, and a purchase with co-purchased complements for the g
 recommenders' output; nothing is tuned for these customers. "Browse all customers" keeps
 everyone else accessible, and the Evaluation tab scores all eligible customers.
 
-## Screenshots
+## MVP interface
 
-Captured on the default sample (5,000 customers, 14,300 products) with
-`scripts/take_screenshots.py --example 5`: customer #1585, who mostly buys dresses, plus
-shirts, trousers and boots.
+Five native pages separate shopping from model inspection: **For you**, **Discover**,
+**Product connections**, **Model quality**, and **Assistant**. Only the active page
+runs its requests. Shopping-history and method controls stay secondary to product
+photos; every card opens details. Selected histories persist across navigation.
+Text and photo search share one discovery workspace, with section filtering,
+query examples and a 10 MB upload limit. Missing images, empty results, unavailable
+services and an unconfigured assistant have explicit states.
 
-### Recommendations: collaborative
+### Personalized discovery
 
-Dresses, trousers and blouses that hundreds of other shoppers bought together with this
-customer's recent purchases; each card names the purchase behind it.
+The learned ranker is the default when its model is available. Buy-again,
+collaborative, visual-style and graph approaches remain inspectable alternatives.
+These captures use the real 5,000-customer sample and an explicitly partial index
+of 3,537 of 14,300 catalog photos; they show no current stock or checkout capability.
 
-![Collaborative recommendations](docs/screenshots/recommendations-collaborative.jpg)
+![Clothy personalized feed](docs/screenshots/mvp-for-you.jpg)
 
-The same customer under the [knowledge graph](docs/screenshots/recommendations-graph.jpg)
-and [content-based](docs/screenshots/recommendations-content.jpg) strategies.
+[Product details](docs/screenshots/mvp-product-detail.jpg) show descriptions,
+approximate prices and related pieces.
+[Mobile feed](docs/screenshots/mvp-mobile.jpg) uses the same native controls and stacks cards.
 
-### Evaluation
+### Measured quality
 
-Trained on purchases before 2020-09-16, scored on what 819 customers bought in the
-following seven days. Collaborative filtering scores 1.4x last week's best-sellers, which
-are themselves a strong baseline once counted over every shopper.
+All-purchase MAP@12, customer hit rate and recall appear beside the strong
+buy-again baseline. The 819-customer held-out result includes the uncertainty
+interval and catalog-selection limitations; the observed gain is not presented as
+established superiority.
 
-![Offline evaluation](docs/screenshots/evaluation.jpg)
+![Clothy model quality](docs/screenshots/mvp-quality.jpg)
 
-### Text-to-image search
+### Search by description or photo
 
-"striped summer dress" is compared with product photos only; names and descriptions are not
-searched.
+"Striped summer dress" retrieves product photos by visual meaning. The photo
+example is a grey sweater outside the catalog, so results are different products.
 
-![Text-to-image search](docs/screenshots/text-search.jpg)
+![Clothy description search](docs/screenshots/mvp-discover-text.jpg)
 
-### Image search
+![Clothy photo search](docs/screenshots/mvp-discover-photo.jpg)
 
-The query is an example photo of a grey sweater that is not in the catalog; the results are
-other grey knits.
-
-![Image search](docs/screenshots/image-search.jpg)
-
-### Knowledge graph and look-alikes
-
-A purchased dress with its attributes, category and co-purchase links. "Looks similar" lists
-the nearest product photos, which needs no purchase history.
-
-![Knowledge graph with visually similar products](docs/screenshots/knowledge-graph-similar.jpg)
-
-Theme and layout captures of the graph explorer:
+Earlier graph theme captures remain available:
 [dark](docs/screenshots/knowledge-graph-dark-desktop.png),
 [light](docs/screenshots/knowledge-graph-light-desktop.png),
 [narrow](docs/screenshots/knowledge-graph-dark-narrow.png).
@@ -246,7 +242,7 @@ Any OpenAI-compatible gateway (OmniRoute, OpenRouter, LiteLLM, Ollama, vLLM) wor
 | GET | `/search/examples`, `/search/examples/{id}/image` | Example query photos of garments outside the catalog |
 | GET | `/users`, `/users/{id}` | User ids; profile with purchase history |
 | GET | `/demo/customers` | Up to ten descriptive customer examples and starting products |
-| GET | `/users/{id}/recommendations?strategy=collaborative\|graph\|content` | Personalised recommendations; collaborative and graph hits include reasons |
+| GET | `/users/{id}/recommendations?strategy=learned\|repeat\|collaborative\|graph\|content` | Personalised recommendations; learned, repeat, collaborative and graph hits include reasons |
 | POST | `/chat` | `{"message": "...", "history": [...]}` |
 | GET | `/evaluation` | Offline evaluation results saved by `scripts.evaluate --output` |
 

@@ -42,9 +42,35 @@ GRAPH = {
 
 
 def run_ui():
+    import streamlit as st
+
     from clothes_recommender import ui
 
-    ui.main()
+    # Component harness; native page routing has its own regression below.
+    tabs = st.tabs(
+        [
+            "Recommendations",
+            "Knowledge graph",
+            "Text search",
+            "Image search",
+            "Assistant",
+            "Evaluation",
+        ]
+    )
+    for tab, render in zip(
+        tabs,
+        [
+            ui.recommendations_tab,
+            ui.knowledge_graph_tab,
+            ui.text_search_tab,
+            ui.image_search_tab,
+            ui.chat_tab,
+            ui.evaluation_tab,
+        ],
+        strict=True,
+    ):
+        with tab:
+            render()
 
 
 def test_search_tabs_wait_for_a_query_and_missing_photos_have_a_caption(mocked_api):
@@ -79,7 +105,13 @@ def mocked_api(monkeypatch, request_bodies):
             return httpx.Response(overrides[path][0], **overrides[path][1])
         if path.endswith("/image"):
             return httpx.Response(404, json={"detail": "No image"})
-        if path == "/demo/customers":
+        if path == "/health":
+            payload = {"status": "ok", "indexed_products": 2, "chat_enabled": False}
+        elif path in ("/products/1", "/products/2"):
+            payload = PRODUCT if path.endswith("/1") else RECOMMENDED
+        elif path.endswith("/similar"):
+            payload = [{"product": RECOMMENDED, "score": 0.8, "reasons": []}]
+        elif path == "/demo/customers":
             payload = [
                 {
                     "user_id": 7,
@@ -354,19 +386,15 @@ def test_curated_defaults_and_all_customer_access_are_separate_per_tab(mocked_ap
         selector = next(widget for widget in app.selectbox if widget.label == label)
         assert len(selector.options) == 2
         assert "Coat connections" in selector.options[0]
-    # Collaborative scores best offline, so it is the default strategy.
-    assert (
-        next(widget for widget in app.radio if widget.label == "Strategy").value == "collaborative"
-    )
+    # The measured strong repeat baseline is the default.
+    assert next(widget for widget in app.radio if widget.label == "Strategy").value == "repeat"
     assert any(caption.value == "Explore shared coat evidence." for caption in app.caption)
     assert not any(path == "/users" for path, _ in calls)
     assert not any(path == "/users/8" for path, _ in calls)
 
     app.toggle(key="graph_user_browse_all").set_value(True).run()
     assert not app.exception
-    assert not any(path == "/users" for path, _ in calls)
-    next(button for button in app.button if button.label == "Continue").click().run()
-    assert not app.exception
+    assert ("/users", {}) in calls
     customer = next(widget for widget in app.selectbox if widget.label == "Customer")
     assert customer.options == ["7", "8", "9"]
     customer.set_value(9).run()
@@ -434,55 +462,18 @@ def test_curated_options_are_bounded_to_ten(mocked_api):
 
 
 @pytest.mark.parametrize("key", ["graph_user", "recommendation_user"])
-def test_all_customers_requires_confirmation_and_can_be_repeated(mocked_api, key):
+def test_all_customer_access_is_direct_and_can_be_repeated(mocked_api, key):
     calls, _ = mocked_api
     app = AppTest.from_function(run_ui).run()
     for _ in range(2):
         calls.clear()
         app.toggle(key=f"{key}_browse_all").set_value(True).run()
         assert not app.exception
-        assert len([button for button in app.button if button.label == "Continue"]) == 1
-        assert not app.toggle(key=f"{key}_browse_all").value
-        assert not any(path == "/users" for path, _ in calls)
-        next(
-            button for button in app.button if button.label == "Keep curated examples"
-        ).click().run()
-        assert not app.exception
-        assert not any(button.label == "Continue" for button in app.button)
-        assert not any(path == "/users" for path, _ in calls)
-
-        app.toggle(key=f"{key}_browse_all").set_value(True).run()
-        next(button for button in app.button if button.label == "Continue").click().run()
-        assert not app.exception
-        assert app.toggle(key=f"{key}_browse_all").value
         assert ("/users", {}) in calls
+        assert not any(button.label == "Continue" for button in app.button)
         app.toggle(key=f"{key}_browse_all").set_value(False).run()
         assert not app.exception
         assert not app.toggle(key=f"{key}_browse_all").value
-
-
-@pytest.mark.parametrize("key", ["graph_user", "recommendation_user"])
-def test_dialog_dismiss_rerun_keeps_curated_and_does_not_reopen(mocked_api, key):
-    calls, _ = mocked_api
-    app = AppTest.from_function(run_ui).run()
-    app.toggle(key=f"{key}_browse_all").set_value(True).run()
-    assert any(button.label == "Continue" for button in app.button)
-    # Native Esc/X invokes on_dismiss="rerun"; reproduce that full rerun offline.
-    app.run()
-    assert not app.exception
-    assert not any(button.label == "Continue" for button in app.button)
-    assert not app.toggle(key=f"{key}_browse_all").value
-    assert not any(path == "/users" for path, _ in calls)
-
-
-def test_two_tab_requests_open_only_one_dialog(mocked_api):
-    calls, _ = mocked_api
-    app = AppTest.from_function(run_ui).run()
-    app.toggle(key="graph_user_browse_all").set_value(True)
-    app.toggle(key="recommendation_user_browse_all").set_value(True).run()
-    assert not app.exception
-    assert len([button for button in app.button if button.label == "Continue"]) == 1
-    assert not any(path == "/users" for path, _ in calls)
 
 
 def run_product_cards():
@@ -671,6 +662,61 @@ def test_evaluation_tab_compares_strategies_with_popularity(mocked_api):
     assert not app.exception
     table = next(frame.value for frame in app.dataframe if "Strategy" in frame.value)
     # Best first.
-    assert table["vs popularity"].round(2).tolist() == [3.0, 1.0]
+    assert table["vs baseline"].round(2).tolist() == [2.0, 1.0]
     assert any("321" in markdown.value for markdown in app.markdown)
     assert any("without an image index" in caption.value for caption in app.caption)
+
+
+def run_main():
+    from clothes_recommender import ui
+
+    ui.main()
+
+
+def test_main_renders_only_selected_native_page(mocked_api):
+    calls, _ = mocked_api
+    app = AppTest.from_function(run_main).run()
+    assert not app.exception
+    assert app.title[0].value == "For you"
+    assert any(path == "/health" for path, _ in calls)
+    assert not any(
+        path in ("/evaluation", "/search/examples") or path.endswith("/graph") for path, _ in calls
+    )
+    assert not app.get("file_uploader")
+
+
+def test_product_detail_is_reachable_from_catalog_and_keeps_names_plain(mocked_api):
+    calls, _ = mocked_api
+    app = AppTest.from_function(run_main).run()
+    app.button(key="detail_recommendations_2_0").click().run()
+    assert not app.exception
+    assert ("/products/2", {}) in calls
+    assert any(header.value == "Wool coat" for header in app.subheader)
+    assert any("current stock is unknown" in caption.value for caption in app.caption)
+
+
+def test_disabled_assistant_has_a_recovery_path(mocked_api):
+    app = AppTest.from_string("from clothes_recommender import ui; ui.chat_tab()").run()
+    assert not app.exception
+    assert any("discover pieces by description or photo" in info.value for info in app.info)
+    assert not app.chat_input
+
+
+def test_validated_ranker_is_default_when_api_reports_it_ready(mocked_api):
+    calls, overrides = mocked_api
+    overrides["/health"] = (
+        200,
+        {
+            "json": {
+                "status": "ok",
+                "indexed_products": 2,
+                "catalog_products": 6,
+                "chat_enabled": False,
+                "ranking_enabled": True,
+            }
+        },
+    )
+    app = AppTest.from_function(run_main).run()
+    assert not app.exception
+    assert next(widget for widget in app.radio if widget.label == "Strategy").value == "learned"
+    assert ("/users/7/recommendations", {"strategy": "learned", "top_k": "12"}) in calls

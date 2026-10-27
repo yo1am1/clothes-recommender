@@ -1,0 +1,22 @@
+/* Native Streamlit controls retain keyboard, focus and theme behavior. */
+.stMainBlockContainer { max-width: 1180px; padding-top: 5rem; padding-bottom: 4rem; }
+.clothy-brand { font: 500 2.2rem/1 Georgia, serif; letter-spacing: -.06em; margin: .5rem 0 1rem; }
+.clothy-brand span { font: 500 .65rem/1.4 system-ui, sans-serif; letter-spacing: .18em; margin-left: 1.2rem; }
+h1 { letter-spacing: -.045em; }
+h2, h3 { letter-spacing: -.025em; }
+[data-testid="stMetricValue"] { font-variant-numeric: tabular-nums; }
+[class*="st-key-product_card_"] { padding-bottom: 1.5rem; }
+[class*="st-key-product_card_"] [data-testid="stImage"] img {
+    width: 100%; aspect-ratio: 2 / 3; object-fit: contain; background: #fff;
+}
+[class*="st-key-product_card_"] [data-testid="stText"] {
+    font-weight: 550; font-size: 1.05rem; min-height: 1.6rem;
+}
+[class*="st-key-product_card_"] [data-testid="stExpander"] { border: 0; }
+[class*="st-key-product_card_"] button { min-height: 2.75rem; }
+@media (max-width: 640px) {
+    .stMainBlockContainer { padding-top: 3.5rem; }
+    .clothy-brand { font-size: 1.8rem; }
+    .clothy-brand span { margin-left: .75rem; font-size: .55rem; }
+    [class*="st-key-product_card_"] { max-width: 100%; }
+}

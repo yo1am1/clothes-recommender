@@ -6,3 +6,14 @@ gatherUsageStats = false
 
 [client]
 toolbarMode = "minimal"
+
+[theme]
+base = "light"
+primaryColor = "#9C4935"
+backgroundColor = "#FAF9F6"
+secondaryBackgroundColor = "#F0EEE8"
+textColor = "#252723"
+font = "sans serif"
+headingFont = "serif"
+baseFontSize = 16
+borderColor = "#D8D5CD"

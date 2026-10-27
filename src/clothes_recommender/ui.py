@@ -1,10 +1,11 @@
-"""Streamlit demo UI: a thin client over the HTTP API.
+"""Clothy fashion-discovery MVP: a thin Streamlit client over the HTTP API.
 
 Run with: uv run streamlit run src/clothes_recommender/ui.py
 """
 
 import math
 import re
+from pathlib import Path
 
 import httpx
 import streamlit as st
@@ -12,8 +13,6 @@ import streamlit as st
 from clothes_recommender.config import get_settings
 
 GRID_COLUMNS = 3
-# H&M photos are portrait; a fixed width keeps three cards and their captions on screen.
-PHOTO_WIDTH = 180
 QUERY_PHOTO_COLUMNS = 6
 EXAMPLE_QUERIES = [
     "black leather biker jacket",
@@ -24,10 +23,13 @@ EXAMPLE_QUERIES = [
     "chunky knit cardigan",
 ]
 STRATEGY_NAMES = {
-    "popularity": "Popularity (recent best-sellers)",
-    "content": "Content-based (CLIP taste vector)",
-    "collaborative": "Collaborative (shoppers who bought the same items)",
-    "graph": "Knowledge graph (purchase connections)",
+    "learned": "Personalized ranking",
+    "repeat": "Buy again + best-sellers",
+    "popularity": "Recent best-sellers",
+    "popularity_novel": "Best-sellers, new items only",
+    "content": "Visual style (CLIP)",
+    "collaborative": "Collaborative",
+    "graph": "Purchase connections",
 }
 
 
@@ -44,8 +46,8 @@ def call_api(method: str, path: str, missing_ok: bool = False, **kwargs) -> dict
     """
     try:
         response = api_client().request(method, path, **kwargs)
-    except httpx.HTTPError as error:
-        st.error(f"API unreachable at {get_settings().api_url}: {error}")
+    except httpx.HTTPError:
+        st.error("The catalog service is unavailable. Please try again.")
         return None
     if response.is_error:
         try:
@@ -78,6 +80,8 @@ def query_photo(photo_id: int) -> bytes | None:
 
 def recommendation_reason(reasons: list[str]) -> str | None:
     """Summarize the strongest supplied evidence; keep raw evidence in the expander."""
+    if reasons and reasons[0].startswith("Buy again:"):
+        return reasons[0]
     if reasons and (" who bought " in reasons[0] or reasons[0].startswith("Popular in")):
         return reasons[0]  # collaborative: the purchase that points here most strongly
     for reason in reasons:
@@ -100,14 +104,19 @@ def show_products(
     products: list[dict],
     scores: list[float] | None = None,
     reasons: list[list[str]] | None = None,
+    *,
+    context: str = "products",
 ) -> None:
     for start in range(0, len(products), GRID_COLUMNS):
         columns = st.columns(GRID_COLUMNS)
         for offset, product in enumerate(products[start : start + GRID_COLUMNS]):
             i = start + offset
-            with columns[offset]:
+            with (
+                columns[offset],
+                st.container(key=f"product_card_{context}_{product['product_id']}_{i}"),
+            ):
                 if (photo := product_photo(product["product_id"])) is not None:
-                    st.image(photo, width=PHOTO_WIDTH)
+                    st.image(photo, width="stretch")
                 else:
                     st.caption("No photo available.")
                 st.text(product["name"])
@@ -122,56 +131,37 @@ def show_products(
                             st.caption(f"Ranking score: {scores[i]:.3f}")
                         for detail in dict.fromkeys(evidence):
                             st.text(detail)
+                if st.button(
+                    f"View {product['name']}",
+                    key=f"detail_{context}_{product['product_id']}_{i}",
+                    width="stretch",
+                ):
+                    product_details(product["product_id"])
 
 
-def show_hits(hits: list[dict] | None) -> None:
+def show_hits(hits: list[dict] | None, *, context: str = "results") -> None:
     if hits:
         show_products(
             [h["product"] for h in hits],
             [h["score"] for h in hits],
             [h.get("reasons", []) for h in hits],
+            context=context,
         )
     elif hits is not None:
         st.info("No matching products.")
-
-
-def request_customer_browse(key: str) -> None:
-    """A toggle requests confirmation; only Continue activates full-list browsing."""
-    if st.session_state[f"{key}_browse_all"]:
-        st.session_state["customer_browse_pending"] = key
-        st.session_state[f"{key}_browse_all"] = False
-    else:
-        st.session_state[f"{key}_all_confirmed"] = False
-
-
-def enable_customer_browse(key: str) -> None:
-    st.session_state[f"{key}_all_confirmed"] = True
-
-
-@st.dialog("Browse all customers?", on_dismiss="rerun")
-def confirm_customer_browse(key: str) -> None:
-    st.write(
-        "The full dataset is not curated. Some customer histories and recommendation "
-        "results may be sparse. You can return to the curated examples at any time."
-    )
-    if st.button("Continue", type="primary", on_click=enable_customer_browse, args=(key,)):
-        st.rerun()
-    if st.button("Keep curated examples"):
-        st.rerun()
 
 
 def customer_selector(label: str, key: str) -> dict | None:
     """Start with a few explained examples; fetch the full ID list only on request."""
     examples = call_api("GET", "/demo/customers") or []
     examples_by_id = {example["user_id"]: example for example in examples[:10]}
-    browse_all = st.session_state.get(f"{key}_all_confirmed", False)
-    st.session_state[f"{key}_browse_all"] = browse_all
-    st.toggle(
-        "Browse all customers",
-        key=f"{key}_browse_all",
-        on_change=request_customer_browse,
-        args=(key,),
+    saved_mode = f"saved_{key}_browse_all"
+    selected = st.session_state.get("selected_customer")
+    default_all = st.session_state.get(saved_mode, False) or (
+        selected is not None and selected not in examples_by_id
     )
+    browse_all = st.toggle("Browse all customers", value=default_all, key=f"{key}_browse_all")
+    st.session_state[saved_mode] = browse_all
     user_ids = call_api("GET", "/users") if browse_all else list(examples_by_id)
     if not user_ids:
         st.info(
@@ -183,11 +173,15 @@ def customer_selector(label: str, key: str) -> dict | None:
     user_id = st.selectbox(
         label,
         user_ids,
+        index=user_ids.index(st.session_state.get("selected_customer"))
+        if st.session_state.get("selected_customer") in user_ids
+        else 0,
         key=f"{key}_{'all' if browse_all else 'examples'}",
         format_func=lambda uid: (
             str(uid) if browse_all else f"{examples_by_id[uid]['label']} (#{uid})"
         ),
     )
+    st.session_state["selected_customer"] = user_id
     example = examples_by_id.get(user_id, {"user_id": user_id})
     if example.get("description"):
         st.caption(example["description"])
@@ -195,46 +189,119 @@ def customer_selector(label: str, key: str) -> dict | None:
 
 
 def recommendations_tab() -> None:
-    left, right = st.columns([0.55, 0.45])
+    left, right = st.columns([0.7, 0.3], gap="large")
     with left:
+        st.title("For you")
+        st.caption("Your recent favorites, and new pieces to explore.")
+    with right, st.popover("Shopping history", width="stretch"):
         example = customer_selector("User", "recommendation_user")
         if example is None:
             return
         user_id = example["user_id"]
-        strategy = st.radio(
-            "Strategy",
-            ["collaborative", "graph", "content"],
-            format_func=STRATEGY_NAMES.get,
-        )
-    profile = call_api("GET", f"/users/{user_id}")
-    with right:
+        profile = call_api("GET", f"/users/{user_id}")
         if profile:
-            user = profile["user"]
             purchases = profile["purchases"]
-            distinct = len({purchase["product"]["product_id"] for purchase in purchases})
-            st.text(f"Customer #{user['user_id']}")
-            st.caption(f"{len(purchases)} purchase records · {distinct} distinct products")
+            st.caption(f"Shopping history #{user_id}")
             if purchases:
                 with st.expander("Recent purchases (up to 10)"):
                     st.dataframe(
                         [
                             {
-                                "Product": purchase["product"]["name"],
-                                "Type": purchase["product"]["product_type"],
-                                "Price (€)": purchase["product"]["price"],
-                                "Date": purchase.get("purchase_date", ""),
+                                "Product": item["product"]["name"],
+                                "Type": item["product"]["product_type"],
+                                "Price (€)": item["product"]["price"],
+                                "Date": item.get("purchase_date", ""),
                             }
-                            for purchase in purchases[:10]
+                            for item in purchases[:10]
                         ],
                         hide_index=True,
                         width="stretch",
                     )
-
-    st.subheader("Recommended for this user")
-    with st.spinner("Finding recommendations…"):
-        show_hits(
-            call_api("GET", f"/users/{user_id}/recommendations", params={"strategy": strategy})
+    strategies = ["repeat", "collaborative", "content", "graph"]
+    if st.session_state.get("service_health", {}).get("ranking_enabled"):
+        strategies.insert(0, "learned")
+    with st.expander("How picks are chosen"):
+        strategy = st.radio(
+            "Strategy",
+            strategies,
+            index=strategies.index(st.session_state.get("saved_strategy", strategies[0]))
+            if st.session_state.get("saved_strategy", strategies[0]) in strategies
+            else 0,
+            format_func={
+                "learned": "Personalized ranking",
+                "repeat": "Buy again",
+                "collaborative": "Similar shoppers",
+                "content": "Visual style",
+                "graph": "Purchase connections",
+            }.get,
+            horizontal=True,
+            key="recommendation_strategy",
         )
+        st.session_state["saved_strategy"] = strategy
+        st.caption(
+            "Buy again is a strong simple baseline. Personalized ranking learns from "
+            "earlier purchases; discovery approaches deliberately show only new items."
+        )
+    descriptions = {
+        "learned": "Favorites and new finds, ranked by your purchase patterns and recent demand.",
+        "repeat": "Your most recent purchases first, followed by recent best-sellers.",
+        "collaborative": "New pieces bought by shoppers with items like yours.",
+        "content": "New pieces with photos close to the styles in your history.",
+        "graph": "New pieces connected through purchases and catalog attributes.",
+    }
+    st.subheader("Worth another look" if strategy == "repeat" else "Selected for your history")
+    st.caption(descriptions[strategy])
+    with st.spinner("Finding your pieces…"):
+        show_hits(
+            call_api(
+                "GET",
+                f"/users/{user_id}/recommendations",
+                params={"strategy": strategy, "top_k": 12},
+            ),
+            context="recommendations",
+        )
+
+
+@st.dialog("Product details", width="large")
+def product_details(product_id: int) -> None:
+    product = call_api("GET", f"/products/{product_id}")
+    if product is None:
+        return
+    left, right = st.columns([0.45, 0.55], gap="large")
+    with left:
+        if (photo := product_photo(product_id)) is not None:
+            st.image(photo, width="stretch")
+        else:
+            st.info("A photo is not available for this item.")
+    with right:
+        st.subheader(product["name"])
+        st.markdown(f"### €{product['price']:.2f}")
+        st.caption(
+            f"{product['product_type']} · {product['colour']} · {product.get('section', '')}"
+        )
+        st.text(product.get("description") or "No further description is available.")
+        st.caption("H&M research catalog, 2020. Prices are approximate; current stock is unknown.")
+    related = st.radio(
+        "Explore this piece",
+        ["similar", "complement"],
+        horizontal=True,
+        format_func={"similar": "Similar styles", "complement": "Bought together"}.get,
+        key=f"detail_relation_{product_id}",
+    )
+    path = (
+        f"/products/{product_id}/similar"
+        if related == "similar"
+        else f"/products/{product_id}/related"
+    )
+    params = {"top_k": 3} if related == "similar" else {"top_k": 3, "kind": "complement"}
+    hits = call_api("GET", path, params=params, missing_ok=True)
+    if hits:
+        # Related-item buttons cannot open a second native dialog inside this one.
+        for hit in hits:
+            item = hit["product"]
+            st.text(f"{item['name']} · {item['colour']} · €{item['price']:.2f}")
+    elif hits is not None:
+        st.info("No related pieces are available yet.")
 
 
 def graph_view(
@@ -484,7 +551,9 @@ def knowledge_graph_tab() -> None:
             "so this works for products nobody has bought together yet."
         )
         with st.spinner("Finding look-alikes…"):
-            show_hits(call_api("GET", f"/products/{selected_product_id}/similar"))
+            show_hits(
+                call_api("GET", f"/products/{selected_product_id}/similar"), context="graph_similar"
+            )
         return
     else:
         st.caption(
@@ -503,7 +572,7 @@ def knowledge_graph_tab() -> None:
             else "No co-purchased products from different product groups."
         )
     else:
-        show_hits(related)
+        show_hits(related, context="graph_related")
 
 
 def use_example_query() -> None:
@@ -513,8 +582,7 @@ def use_example_query() -> None:
 
 def text_search_tab() -> None:
     st.caption(
-        "Your words are embedded with CLIP's text encoder and compared with the product "
-        "photos directly. Product names and descriptions are not searched."
+        "Search product photos in everyday language. Describe a color, shape, material or occasion."
     )
     st.pills("Try an example", EXAMPLE_QUERIES, key="text_example", on_change=use_example_query)
     left, right = st.columns([0.7, 0.3])
@@ -539,10 +607,10 @@ def choose_query_photo(photo_id: int) -> None:
 
 
 def image_search_tab() -> None:
-    st.caption(
-        "The photo is embedded with CLIP's image encoder and compared with every product photo."
+    st.caption("Find similar pieces from a garment photo. Upload a PNG or JPEG, or try an example.")
+    upload = st.file_uploader(
+        "Upload a photo of a garment", type=["png", "jpg", "jpeg"], max_upload_size=10
     )
-    upload = st.file_uploader("Upload a photo of a garment", type=["png", "jpg", "jpeg"])
     examples = call_api("GET", "/search/examples") or []
     if examples:
         chosen = st.session_state.get("query_photo_id") is not None
@@ -587,40 +655,33 @@ def image_search_tab() -> None:
 
 
 def evaluation_chart_spec(rows: list[dict], baseline: float | None) -> dict:
-    """Bars of new-item MAP@12, best first, with popularity as a dashed reference line."""
+    """Full-holdout MAP bars; the rule marks the strong repeat baseline when available."""
     values = [
-        {
-            "Strategy": row["Strategy"],
-            "MAP@12": row["MAP@12, new items"],
-            "Label": f"{row['vs popularity']:.2f}x" if row["vs popularity"] else "",
-        }
+        {"Strategy": row["Strategy"], "MAP@12": row["MAP@12"], "Label": f"{row['MAP@12']:.4f}"}
         for row in rows
-        if row["MAP@12, new items"] is not None
+        if row["MAP@12"] is not None
     ]
     y = {
         "field": "Strategy",
         "type": "nominal",
         "sort": "-x",
         "title": None,
-        "axis": {"labelLimit": 320, "ticks": False, "domain": False},
+        "axis": {"labelLimit": 220, "ticks": False, "domain": False},
     }
     x = {
         "field": "MAP@12",
         "type": "quantitative",
-        "title": "MAP@12 on items the customer had not bought before",
-        "axis": {"format": ".3f", "tickCount": 6, "gridOpacity": 0.4},
+        "title": "MAP@12 · all held-out purchases",
+        "scale": {"zero": True},
+        "axis": {"format": ".3f", "tickCount": 5},
     }
-    layers: list[dict] = [
+    layers = [
         {
-            "mark": {"type": "bar", "cornerRadiusEnd": 4, "height": {"band": 0.6}},
+            "mark": {"type": "bar", "color": "#9c4935", "cornerRadiusEnd": 2},
             "encoding": {
                 "y": y,
                 "x": x,
-                "tooltip": [
-                    {"field": "Strategy", "type": "nominal"},
-                    {"field": "MAP@12", "type": "quantitative", "format": ".4f"},
-                    {"field": "Label", "title": "vs popularity"},
-                ],
+                "tooltip": [{"field": "Strategy"}, {"field": "MAP@12", "format": ".4f"}],
             },
         },
         {
@@ -628,7 +689,7 @@ def evaluation_chart_spec(rows: list[dict], baseline: float | None) -> dict:
             "encoding": {"y": y, "x": x, "text": {"field": "Label"}},
         },
     ]
-    if baseline:
+    if baseline is not None:
         layers.append(
             {
                 "data": {"values": [{"baseline": baseline}]},
@@ -637,7 +698,7 @@ def evaluation_chart_spec(rows: list[dict], baseline: float | None) -> dict:
             }
         )
     return {
-        "description": "Offline MAP@12 per strategy; the dashed line marks popularity.",
+        "description": "Full-holdout MAP@12 with the baseline as a dashed rule.",
         "data": {"values": values},
         "height": 44 * len(values),
         "layer": layers,
@@ -646,66 +707,139 @@ def evaluation_chart_spec(rows: list[dict], baseline: float | None) -> dict:
 
 
 def evaluation_tab() -> None:
+    st.title("Model quality")
+    st.caption("Measured against what people bought next.")
     evaluation = call_api("GET", "/evaluation", missing_ok=True)
     if evaluation is None:
         return
     scope = evaluation["sample_scope"]
+    if evaluation.get("evaluation_role") == "validation":
+        st.caption("Earlier validation week; not the final holdout.")
     st.markdown(
-        f"Every strategy is trained on purchases before **{evaluation['cutoff']}** and asked "
-        f"for {evaluation['top_k']} products per customer. They are scored against what "
-        f"**{evaluation['users_evaluated']:,}** customers bought in the "
-        f"{evaluation['holdout_days']} days up to {evaluation['holdout_end']}."
+        f"**{evaluation['users_evaluated']:,} customers** · "
+        f"{evaluation['cutoff']} to {evaluation['holdout_end']} · "
+        f"{evaluation['top_k']} recommendations each"
+    )
+    st.caption(
+        "Prepared catalog and customer selection may favor every strategy; "
+        "these are sample-level results, not population or leaderboard estimates."
     )
     results = evaluation["results"]
-    baseline = results.get("popularity", {}).get("novel_item_holdout", {}).get("map_at_12")
-    rows = []
-    for name, metrics in results.items():
-        novel = metrics["novel_item_holdout"]["map_at_12"]
-        rows.append(
-            {
-                "Strategy": STRATEGY_NAMES.get(name, name),
-                "MAP@12, new items": novel,
-                "vs popularity": novel / baseline if novel is not None and baseline else None,
-                "MAP@12, all purchases": metrics["full_holdout"]["map_at_12"],
-                "Catalog coverage": metrics["catalog_coverage"],
-                "List fill": metrics["recommendation_fill"],
-            }
+    if not results:
+        st.info("No evaluated strategies are available yet.")
+        return
+    winner = max(results, key=lambda name: results[name]["full_holdout"]["map_at_12"] or 0)
+    best = results[winner]["full_holdout"]
+    st.subheader(STRATEGY_NAMES.get(winner, winner))
+    st.caption("Highest full-holdout MAP in this measured sample.")
+    columns = st.columns(3)
+    columns[0].metric(
+        "Customers reached",
+        f"{best['hit_rate']:.1%}" if best.get("hit_rate") is not None else "Not recorded",
+    )
+    columns[1].metric(
+        "Purchased items recovered",
+        f"{best['recall_at_12']:.1%}" if best.get("recall_at_12") is not None else "Not recorded",
+    )
+    columns[2].metric("Ranking quality · MAP@12", f"{best['map_at_12']:.4f}")
+    if gain := evaluation.get("learned_vs_repeat"):
+        statement = (
+            "The interval includes zero; the single-week advantage remains uncertain."
+            if (gain["lower_95"] <= 0 <= gain["upper_95"])
+            else "Interval covers selected-customer uncertainty only."
         )
-    rows.sort(key=lambda row: -(row["MAP@12, new items"] or 0.0))
+        st.caption(
+            f"Observed MAP gain vs buy-again: {gain['mean_delta']:+.4f}. "
+            f"95% paired-customer interval: {gain['lower_95']:+.4f} to {gain['upper_95']:+.4f}. "
+            + statement
+        )
+    baseline_name = "repeat" if "repeat" in results else "popularity"
+    baseline = results.get(baseline_name, {}).get("full_holdout", {}).get("map_at_12")
+    rows = [
+        {
+            "Strategy": STRATEGY_NAMES.get(name, name),
+            "MAP@12": values["full_holdout"]["map_at_12"],
+            "Hit rate": values["full_holdout"].get("hit_rate"),
+            "Recall@12": values["full_holdout"].get("recall_at_12"),
+            "vs baseline": values["full_holdout"]["map_at_12"] / baseline if baseline else None,
+            "Catalog coverage": values["catalog_coverage"],
+            "List fill": values["recommendation_fill"],
+        }
+        for name, values in results.items()
+    ]
+    rows.sort(key=lambda row: -(row["MAP@12"] or 0))
+    st.vega_lite_chart(evaluation_chart_spec(rows, baseline), width="stretch")
+    st.caption(
+        f"Dashed rule: {STRATEGY_NAMES.get(baseline_name, baseline_name)}. "
+        "Repeat purchases are included for every strategy."
+    )
     st.dataframe(
         rows,
         hide_index=True,
         width="stretch",
         column_config={
-            "MAP@12, new items": st.column_config.NumberColumn(format="%.4f"),
-            "vs popularity": st.column_config.NumberColumn(format="%.2fx"),
-            "MAP@12, all purchases": st.column_config.NumberColumn(format="%.4f"),
+            "MAP@12": st.column_config.NumberColumn(format="%.4f"),
+            "Hit rate": st.column_config.NumberColumn(format="percent"),
+            "Recall@12": st.column_config.NumberColumn(format="percent"),
+            "vs baseline": st.column_config.NumberColumn(format="%.2fx"),
             "Catalog coverage": st.column_config.NumberColumn(format="percent"),
             "List fill": st.column_config.NumberColumn(format="percent"),
         },
     )
-    st.vega_lite_chart(evaluation_chart_spec(rows, baseline), width="stretch")
-    if evaluation.get("content_index") is None:
-        st.caption("Content-based results are missing: the evaluation ran without an image index.")
-    repeats = evaluation["repeat_purchase_limitation"]
     st.caption(
-        f"MAP@12 is mean average precision over the top 12 (1.0 = every hit ranked first). "
-        f"Recommenders never repeat a past purchase, so the new-items column, covering "
-        f"{repeats['novel_holdout_unique_user_items']:,} of "
-        f"{repeats['full_holdout_unique_user_items']:,} customer-product pairs, is the fair "
-        f"comparison. Catalog coverage is the share of the {scope['catalog_products']:,} "
-        f"products recommended to anyone. These numbers describe this "
-        f"{scope['prepared_users']:,}-customer sample, not a leaderboard score."
+        "Hit rate: customers with at least one matching recommendation. "
+        "Recall: average share of each customer's purchased items recovered. "
+        "MAP@12 measures ranking quality, not a probability of buying."
     )
+    index = evaluation.get("content_index")
+    if index is None:
+        st.caption("Content-based results are missing: the evaluation ran without an image index.")
+    elif index["indexed_products"] < scope["catalog_products"]:
+        st.caption(
+            f"Visual-style results use {index['indexed_products']:,} of "
+            f"{scope['catalog_products']:,} product photos. This partial index limits coverage."
+        )
+    with st.expander("Data, protocol and limits"):
+        st.write(
+            f"The {scope['prepared_users']:,}-customer sample contains "
+            f"{scope['catalog_products']:,} products. Every purchase-derived signal is trained "
+            "strictly before the holdout. Cohort and catalog selection may use the full window; "
+            "results describe this sample, not the population or a competition leaderboard."
+        )
+        st.write(
+            "Novel-item metrics use the original ranked lists and are diagnostic. "
+            "A repeat strategy and a discovery strategy solve different tasks."
+        )
+        st.json(evaluation.get("repeat_purchase_limitation", {}))
+
+
+def discovery_page() -> None:
+    st.title("Discover")
+    st.caption("Describe a piece you have in mind, or start with a photo.")
+    mode = st.radio("Search with", ["Description", "Photo"], horizontal=True, key="discovery_mode")
+    if mode == "Description":
+        text_search_tab()
+    else:
+        image_search_tab()
 
 
 def chat_tab() -> None:
+    st.title("Shopping assistant")
+    health = call_api("GET", "/health")
+    if health is None:
+        return
+    if not health.get("chat_enabled"):
+        st.info(
+            "The assistant is currently unavailable. "
+            "You can still discover pieces by description or photo."
+        )
+        return
     history: list[dict] = st.session_state.setdefault("chat_history", [])
-    for turn in history:
+    for index, turn in enumerate(history):
         with st.chat_message(turn["role"]):
             st.markdown(turn["content"])
             if turn.get("products"):
-                show_products(turn["products"])
+                show_products(turn["products"], context=f"chat_{index}")
 
     message = st.chat_input("Ask Clothy, e.g. 'black wide-leg trousers for women under €40'")
     if not message:
@@ -718,41 +852,36 @@ def chat_tab() -> None:
         if reply is None:
             return
         st.markdown(reply["text"])
-        show_products(reply["products"])
+        show_products(reply["products"], context="chat_reply")
     history.append({"role": "user", "content": message})
     history.append({"role": "assistant", "content": reply["text"], "products": reply["products"]})
 
 
 def main() -> None:
-    st.set_page_config(page_title="Clothy · Fashion Recommender", page_icon="👗", layout="wide")
-    st.title("👗 Clothy: multimodal fashion recommender")
-    tabs = st.tabs(
+    st.set_page_config(page_title="Clothy · Fashion discovery", page_icon="C", layout="wide")
+    st.html("<style>" + Path(__file__).with_name("ui.css").read_text() + "</style>")
+    health = call_api("GET", "/health")
+    st.html('<div class="clothy-brand">Clothy<span>FASHION DISCOVERY</span></div>')
+    if health is None:
+        st.info("Clothy cannot connect right now. Please try again shortly.")
+        if st.button("Retry connection"):
+            st.rerun()
+        return
+    indexed = f"{health['indexed_products']:,}"
+    total = f" of {health['catalog_products']:,}" if health.get("catalog_products") else ""
+    st.caption(f"H&M 2020 · Photo search: {indexed}{total} pieces")
+    st.session_state["service_health"] = health
+    page = st.navigation(
         [
-            "Recommendations",
-            "Knowledge graph",
-            "Text → image search",
-            "Image search",
-            "Shopping assistant",
-            "Evaluation",
-        ]
-    )
-    for tab, render in zip(
-        tabs,
-        [
-            recommendations_tab,
-            knowledge_graph_tab,
-            text_search_tab,
-            image_search_tab,
-            chat_tab,
-            evaluation_tab,
+            st.Page(recommendations_tab, title="For you", default=True),
+            st.Page(discovery_page, title="Discover", url_path="discover"),
+            st.Page(knowledge_graph_tab, title="Product connections", url_path="connections"),
+            st.Page(evaluation_tab, title="Model quality", url_path="quality"),
+            st.Page(chat_tab, title="Assistant", url_path="assistant"),
         ],
-        strict=True,
-    ):
-        with tab:
-            render()
-    # Pop before opening: Esc/X reruns without reopening or enabling full-list mode.
-    if pending := st.session_state.pop("customer_browse_pending", None):
-        confirm_customer_browse(pending)
+        position="top",
+    )
+    page.run()
 
 
 if __name__ == "__main__":

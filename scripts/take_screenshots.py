@@ -1,4 +1,4 @@
-"""Capture README screenshots of every UI tab from a running app.
+"""Capture README screenshots of the MVP pages from a running app.
 
 Usage (API and UI already running):
     uv run python -m scripts.take_screenshots [--query-image path/to/photo.jpg] [--skip-chat]
@@ -61,10 +61,15 @@ def wait_for_rerun(page: Page) -> None:
 
 
 def choose_example(page: Page, index: int) -> None:
-    """Pick a curated customer in the visible tab's first select box."""
+    """Pick a shopping history, opening the feed's profile popover when present."""
+    popover = page.get_by_role("button", name="Shopping history", exact=True)
+    if popover.count():
+        popover.click()
     page.locator('[data-testid="stSelectbox"]:visible').first.click()
     page.get_by_role("option").nth(index).click()
     wait_for_rerun(page)
+    if popover.count():
+        page.keyboard.press("Escape")
 
 
 def wait_for_photos(page: Page, minimum: int) -> None:
@@ -78,8 +83,9 @@ def capture(page: Page, out: Path, name: str) -> None:
     print(f"saved {path}")
 
 
-def open_tab(page: Page, name: str) -> None:
-    page.get_by_role("tab", name=name, exact=True).click()
+def open_page(page: Page, name: str) -> None:
+    page.get_by_role("link", name=name, exact=True).click()
+    wait_for_rerun(page)
 
 
 def main() -> None:
@@ -96,18 +102,21 @@ def main() -> None:
         if args.example:
             choose_example(page, args.example)
             wait_for_photos(page, PHOTOS_IN_VIEW)
-        capture(page, args.out, "recommendations-collaborative")
+        capture(page, args.out, "mvp-for-you")
 
         for strategy, name in [
-            ("Knowledge graph (purchase connections)", "recommendations-graph"),
-            ("Content-based (CLIP taste vector)", "recommendations-content"),
+            ("Similar shoppers", "recommendations-collaborative"),
+            ("Purchase connections", "recommendations-graph"),
+            ("Visual style", "recommendations-content"),
         ]:
-            page.get_by_text(strategy).click()
+            page.get_by_text("How picks are chosen", exact=True).click()
+            page.get_by_text(strategy, exact=True).click()
             wait_for_rerun(page)
             wait_for_photos(page, PHOTOS_IN_VIEW)
+            page.get_by_text("How picks are chosen", exact=True).click()
             capture(page, args.out, name)
 
-        open_tab(page, "Knowledge graph")
+        open_page(page, "Product connections")
         if args.example:
             choose_example(page, args.example)
         page.get_by_text("Looks similar").click()
@@ -115,14 +124,15 @@ def main() -> None:
         wait_for_photos(page, 3)
         capture(page, args.out, "knowledge-graph-similar")
 
-        open_tab(page, "Text → image search")
+        open_page(page, "Discover")
         page.get_by_label("Describe what you are looking for").fill(args.text_query)
         page.keyboard.press("Enter")
         wait_for_rerun(page)
         wait_for_photos(page, PHOTOS_IN_VIEW)
         capture(page, args.out, "text-search")
 
-        open_tab(page, "Image search")
+        page.get_by_text("Photo", exact=True).click()
+        wait_for_rerun(page)
         if args.query_image:
             page.locator('input[type="file"]').set_input_files(args.query_image)
         else:
@@ -133,13 +143,15 @@ def main() -> None:
         wait_for_photos(page, PHOTOS_IN_VIEW + 1)  # results plus the query photo
         capture(page, args.out, "image-search")
 
-        open_tab(page, "Evaluation")
-        page.get_by_text("MAP@12 is mean average precision").wait_for(timeout=RESULT_TIMEOUT_MS)
+        open_page(page, "Model quality")
+        page.get_by_text("MAP@12 measures ranking quality", exact=False).wait_for(
+            timeout=RESULT_TIMEOUT_MS
+        )
         page.wait_for_timeout(1500)  # the bar chart renders after the text
         capture(page, args.out, "evaluation")
 
         if not args.skip_chat:
-            open_tab(page, "Shopping assistant")
+            open_page(page, "Assistant")
             page.get_by_placeholder("Ask Clothy", exact=False).fill(args.chat_message)
             page.keyboard.press("Enter")
             reply = page.get_by_test_id("stChatMessage").nth(1)
