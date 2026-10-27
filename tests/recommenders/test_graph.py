@@ -249,6 +249,46 @@ def test_alternatives_are_same_specific_category_type_section_and_higher_priced(
 
 
 @pytest.mark.parametrize(
+    "category, product_type",
+    [
+        ("Luggage & Bags > Duffel Bags", "Weekend/Gym bag"),
+        ("Luggage & Bags > Backpacks", "Backpack"),
+        ("Luggage & Bags > Tote Bags", "Tote bag"),
+    ],
+)
+def test_specific_two_component_bags_keep_alternative_filters(make_graph, category, product_type):
+    seed = product(
+        1,
+        price=24.99,
+        product_type=product_type,
+        section="Menswear",
+        shopify_category=category,
+        shopify_attributes={"target-gender": "Male", "age-group": "Adults"},
+    )
+    changes = [
+        {"price": 39.99},
+        {"price": 39.99},
+        {"price": 24.99},
+        {"price": 20},
+        {"price": float("inf")},
+        {"price": 39.99, "section": "Ladieswear"},
+        {"price": 39.99, "product_type": "Other accessories"},
+        {"price": 39.99, "shopify_attributes": {"target-gender": "Female"}},
+        {"price": 39.99, "shopify_attributes": {"age-group": "Kids"}},
+        {"price": 39.99, "shopify_category": "Uncategorized"},
+    ]
+    graph = make_graph(
+        [seed, *(seed | change | {"product_id": pid} for pid, change in enumerate(changes, 2))]
+    )
+
+    assert graph.related(1, "alternative") == [
+        ScoredProduct(2, 24.99 / 39.99),
+        ScoredProduct(3, 24.99 / 39.99),
+    ]
+    assert graph.related(1, "alternative", 1) == [ScoredProduct(2, 24.99 / 39.99)]
+
+
+@pytest.mark.parametrize(
     "category",
     [
         "Uncategorized",
@@ -259,6 +299,10 @@ def test_alternatives_are_same_specific_category_type_section_and_higher_priced(
         "Clothing Accessories",
         "Apparel & Accessories > Clothing",
         "Apparel & Accessories > Clothing Accessories",
+        "Apparel & Accessories > Shoes",
+        "Luggage & Bags",
+        "Luggage & Bags > Bags",
+        "Other > Duffel Bags",
         "Apparel & Accessories > Clothing > Clothing Accessories",
         "Apparel & Accessories > > Shirts & Tops",
     ],

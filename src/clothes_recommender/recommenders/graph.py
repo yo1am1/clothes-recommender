@@ -21,6 +21,12 @@ def _alternative_category(category: str) -> str | None:
     """Require a product-class path below broad taxonomy departments."""
     parts = [part.strip() for part in category.split(">")]
     if (
+        len(parts) == 2
+        and parts[0] == "Luggage & Bags"
+        and parts[1] in {"Backpacks", "Duffel Bags", "Tote Bags"}
+    ):
+        return " > ".join(parts)
+    if (
         len(parts) < 3
         or not all(parts)
         or parts[-1].casefold()
