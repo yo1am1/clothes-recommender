@@ -255,16 +255,21 @@ def create_app(services: Services | None = None) -> FastAPI:
     def recommend(
         user_id: int,
         services: ServicesDep,
-        strategy: Literal["content", "collaborative", "graph"] = "content",
+        strategy: Literal["content", "collaborative", "graph", "repeat"] = "content",
         top_k: TopK = 10,
     ) -> list[ProductHit]:
         recommender: Recommender = {
             "content": services.content_based,
             "collaborative": services.collaborative,
             "graph": services.graph,
+            "repeat": services.repeat,
         }[strategy]
         hits = _to_hits(services, recommender.recommend(user_id, top_k))
-        explainer = {"graph": services.graph, "collaborative": services.collaborative}.get(strategy)
+        explainer = {
+            "graph": services.graph,
+            "collaborative": services.collaborative,
+            "repeat": services.repeat,
+        }.get(strategy)
         if explainer is not None:
             for hit in hits:
                 hit.reasons = explainer.reasons(user_id, hit.product.product_id)

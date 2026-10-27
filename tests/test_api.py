@@ -17,6 +17,7 @@ from clothes_recommender.recommenders.collaborative import CollaborativeRecommen
 from clothes_recommender.recommenders.content_based import ContentBasedRecommender
 from clothes_recommender.recommenders.graph import GraphRecommender
 from clothes_recommender.recommenders.popularity import PopularityRecommender
+from clothes_recommender.recommenders.repeat import RepeatPurchaseRecommender
 from clothes_recommender.search import ProductSearch
 from clothes_recommender.services import Services
 
@@ -60,6 +61,7 @@ def services(sample_catalog, vector_store, fake_encoder, tmp_path) -> Services:
             popularity,
             pd.DataFrame([(1, 3, 2, 1.5)], columns=["product_id", "other_id", "count", "lift"]),
         ),
+        repeat=RepeatPurchaseRecommender(customers, popularity),
         images_dir=tmp_path,
         assistant=None,
     )
@@ -252,3 +254,13 @@ def test_evaluation_is_served_when_present(services, tmp_path) -> None:
         assert "scripts.evaluate" in missing.json()["detail"]
         path.write_text(json.dumps({"top_k": 12, "results": {}}))
         assert client.get("/evaluation").json() == {"top_k": 12, "results": {}}
+
+
+def test_repeat_strategy_includes_purchase_and_grounded_reason(client):
+    response = client.get("/users/1/recommendations", params={"strategy": "repeat", "top_k": 3})
+    assert response.status_code == 200
+    assert response.json()[0]["product"]["product_id"] == 1
+    assert response.json()[0]["reasons"] == ["Buy again: last purchased on 2020-09-02."]
+    assert (
+        client.get("/users/404/recommendations", params={"strategy": "repeat"}).status_code == 404
+    )

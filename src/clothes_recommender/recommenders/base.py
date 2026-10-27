@@ -13,5 +13,5 @@ class UnknownUserError(LookupError):
 
 class Recommender(Protocol):
     def recommend(self, user_id: int, top_k: int = 10) -> list[ScoredProduct]:
-        """Best products for the user, highest score first, excluding ones they bought."""
+        """Ranked products; each strategy defines whether past purchases are eligible."""
         ...

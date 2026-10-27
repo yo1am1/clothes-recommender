@@ -253,6 +253,14 @@ Interactive docs at `http://localhost:8000/docs`.
 
 ## Offline evaluation
 
+The full holdout, including repeat purchases, is now the primary comparison.
+`strategy=repeat` exposes the strong recent-purchases plus best-sellers baseline.
+Evaluation reports customer hit rate and macro recall@12 beside MAP@12, and keeps
+unrestricted popularity separate from new-item-only popularity. See the current
+[recommendation audit](docs/recommendation-audit.md) for reproduced validation and
+MVP work; the earlier new-item benchmark below describes the previous branch state.
+Use `--holdout-end YYYY-MM-DD` to reproduce earlier validation weeks.
+
 ```bash
 uv run python -m scripts.evaluate --data-dir data
 # Content-based recommendations need an explicitly chosen matching image index;

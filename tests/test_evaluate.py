@@ -75,8 +75,18 @@ def test_future_purchases_never_reach_training_or_co_purchase_links(
     ]
     assert result["users_evaluated"] == 2
     graph = result["results"]["graph"]
-    assert graph["full_holdout"] == {"users_evaluated": 2, "map_at_12": 0.5}
-    assert graph["novel_item_holdout"] == {"users_evaluated": 2, "map_at_12": 1.0}
+    assert graph["full_holdout"] == {
+        "users_evaluated": 2,
+        "map_at_12": 0.5,
+        "hit_rate": 1.0,
+        "recall_at_12": 0.5,
+    }
+    assert graph["novel_item_holdout"] == {
+        "users_evaluated": 2,
+        "map_at_12": 1.0,
+        "hit_rate": 1.0,
+        "recall_at_12": 1.0,
+    }
     assert graph["catalog_coverage"] == pytest.approx(2 / 6)
     assert graph["recommendation_fill"] == pytest.approx(2 / 12)
     assert result["content_index"] is None
@@ -94,7 +104,13 @@ def test_tiny_cli_prints_reproducible_json(prepared_evaluation, capsys):
     evaluate.main(["--data-dir", str(data_dir)])
     result = json.loads(capsys.readouterr().out)
     assert result == evaluate.evaluate(data_dir)
-    assert set(result["results"]) == {"popularity", "collaborative", "graph"}
+    assert set(result["results"]) == {
+        "popularity",
+        "popularity_novel",
+        "repeat",
+        "collaborative",
+        "graph",
+    }
     assert result["sample_scope"]["training_purchases"] == 5
     assert result["sample_scope"]["holdout_purchases"] == 6
 
@@ -114,7 +130,12 @@ def test_repeat_only_holdout_has_no_novel_map(prepared_evaluation):
     purchases.to_parquet(path)
     result = evaluate.evaluate(data_dir)
     for metrics in result["results"].values():
-        assert metrics["novel_item_holdout"] == {"users_evaluated": 0, "map_at_12": None}
+        assert metrics["novel_item_holdout"] == {
+            "users_evaluated": 0,
+            "map_at_12": None,
+            "hit_rate": None,
+            "recall_at_12": None,
+        }
 
 
 @pytest.mark.parametrize("case", ["empty", "no_train", "no_overlap"])
@@ -200,3 +221,32 @@ def test_crowd_signals_use_every_shopper_but_only_before_the_cutoff(prepared_eva
     assert result["sample_scope"]["training_shopper_purchases"] == 4
     assert result["sample_scope"]["training_shoppers"] == 2
     assert seen["links"][["product_id", "other_id"]].values.tolist() == [[1, 4]]
+
+
+def test_hit_rate_and_recall_have_independent_hand_calculated_denominators():
+    metrics = evaluate.ranking_metrics({1: {1, 2}, 2: {3, 4, 5}}, {1: [1, 2], 2: [9]}, [1, 2])
+    assert metrics == {"users_evaluated": 2, "map_at_12": 0.5, "hit_rate": 0.5, "recall_at_12": 0.5}
+
+
+def test_repeat_baseline_can_recommend_known_purchases(prepared_evaluation):
+    data_dir, _ = prepared_evaluation
+    result = evaluate.evaluate(data_dir)
+    assert result["results"]["repeat"]["full_holdout"]["hit_rate"] == 1
+    assert result["results"]["repeat"]["full_holdout"]["recall_at_12"] == 0.5
+    assert result["results"]["repeat"]["novel_item_holdout"]["recall_at_12"] == 0
+
+
+def test_explicit_validation_window_ignores_later_purchases():
+    from datetime import date
+
+    purchases = pd.DataFrame(
+        {
+            "user_id": [1, 1, 1],
+            "product_id": [1, 2, 3],
+            "purchase_date": ["2020-01-01", "2020-01-08", "2020-01-15"],
+        }
+    )
+    cutoff, train, holdout = evaluate.chronological_split(purchases, date(2020, 1, 8))
+    assert cutoff == pd.Timestamp("2020-01-02")
+    assert train["product_id"].tolist() == [1]
+    assert holdout["product_id"].tolist() == [2]

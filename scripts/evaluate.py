@@ -9,6 +9,7 @@ With --output the JSON is also saved; the API serves that file at GET /evaluatio
 import argparse
 import json
 from collections.abc import Iterable, Sequence
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
@@ -19,6 +20,7 @@ from clothes_recommender.config import get_settings
 from clothes_recommender.recommenders.collaborative import CollaborativeRecommender
 from clothes_recommender.recommenders.content_based import ContentBasedRecommender
 from clothes_recommender.recommenders.popularity import PopularityRecommender
+from clothes_recommender.recommenders.repeat import RepeatPurchaseRecommender
 from clothes_recommender.vector_store import ProductVectorStore
 from scripts.prepare_data import co_purchases
 
@@ -42,7 +44,9 @@ def average_precision_at_k(
     return total / min(k, len(truth)) if truth else 0.0
 
 
-def chronological_split(purchases: pd.DataFrame) -> tuple[pd.Timestamp, pd.DataFrame, pd.DataFrame]:
+def chronological_split(
+    purchases: pd.DataFrame, holdout_end: date | None = None
+) -> tuple[pd.Timestamp, pd.DataFrame, pd.DataFrame]:
     """Hold out the latest seven calendar days, including the dataset's last day."""
     if purchases.empty:
         raise ValueError(
@@ -51,7 +55,9 @@ def chronological_split(purchases: pd.DataFrame) -> tuple[pd.Timestamp, pd.DataF
     if purchases[["user_id", "product_id", "purchase_date"]].isna().any().any():
         raise ValueError("Purchases must have user_id, product_id and purchase_date")
     purchases = purchases.assign(purchase_date=pd.to_datetime(purchases["purchase_date"]))
-    cutoff = purchases["purchase_date"].max().normalize() - pd.Timedelta(days=6)
+    end = pd.Timestamp(holdout_end) if holdout_end else purchases["purchase_date"].max().normalize()
+    purchases = purchases[purchases["purchase_date"] < end + pd.Timedelta(days=1)]
+    cutoff = end - pd.Timedelta(days=6)
     train = purchases[purchases["purchase_date"] < cutoff].copy()
     holdout = purchases[purchases["purchase_date"] >= cutoff].copy()
     if train.empty:
@@ -61,7 +67,27 @@ def chronological_split(purchases: pd.DataFrame) -> tuple[pd.Timestamp, pd.DataF
     return cutoff, train, holdout
 
 
-def evaluate(data_dir: Path, qdrant_path: Path | None = None) -> dict:
+def ranking_metrics(truth: dict, predictions: dict, user_ids: list) -> dict:
+    """Macro customer metrics; recall uses unique relevant products, not transaction counts."""
+    size = len(user_ids)
+    return {
+        "users_evaluated": size,
+        "map_at_12": sum(average_precision_at_k(truth[u], predictions[u]) for u in user_ids) / size
+        if size
+        else None,
+        "hit_rate": sum(bool(truth[u] & set(predictions[u])) for u in user_ids) / size
+        if size
+        else None,
+        "recall_at_12": sum(len(truth[u] & set(predictions[u])) / len(truth[u]) for u in user_ids)
+        / size
+        if size
+        else None,
+    }
+
+
+def evaluate(
+    data_dir: Path, qdrant_path: Path | None = None, *, holdout_end: date | None = None
+) -> dict:
     """Evaluate prepared users with training and holdout purchases; download no models."""
     from clothes_recommender.recommenders.graph import GraphRecommender
 
@@ -69,7 +95,7 @@ def evaluate(data_dir: Path, qdrant_path: Path | None = None) -> dict:
     catalog = ProductCatalog.from_parquet(data_dir / "products.parquet")
     users = pd.read_parquet(data_dir / "users.parquet")
     purchases = pd.read_parquet(data_dir / "purchases.parquet")
-    cutoff, train, holdout = chronological_split(purchases)
+    cutoff, train, holdout = chronological_split(purchases, holdout_end)
     catalog_ids = {product.product_id for product in catalog}
     if not catalog_ids or not set(purchases["product_id"]).issubset(catalog_ids):
         raise ValueError("Purchases must reference a nonempty prepared product catalog")
@@ -105,12 +131,15 @@ def evaluate(data_dir: Path, qdrant_path: Path | None = None) -> dict:
     )
     popular = PopularityRecommender(shoppers)
     recommenders = {
+        "repeat": RepeatPurchaseRecommender(customers, popular),
         "collaborative": CollaborativeRecommender(customers, catalog, shoppers, popular),
         "graph": GraphRecommender(customers, catalog, popular, links),
     }
     result = {
         "cutoff": cutoff.date().isoformat(),
-        "holdout_end": pd.to_datetime(holdout["purchase_date"]).max().date().isoformat(),
+        "holdout_end": (
+            holdout_end or pd.to_datetime(holdout["purchase_date"]).max().date()
+        ).isoformat(),
         "holdout_days": 7,
         "top_k": TOP_K,
         "users_evaluated": len(eligible),
@@ -130,9 +159,10 @@ def evaluate(data_dir: Path, qdrant_path: Path | None = None) -> dict:
             "co-purchase lift counts only baskets with catalog products",
         },
         "repeat_purchase_limitation": {
-            "description": "Training purchases are excluded from recommendations. "
-            "Full holdout includes repeats; "
-            "novel-item MAP excludes repeats and users with no novel holdout items.",
+            "description": "Full holdout, including repeat purchases, is the primary comparison. "
+            "Popularity and repeat strategies allow past purchases; discovery strategies "
+            "exclude them. Novel-item metrics use the original ranked lists; they are not "
+            "a like-for-like task for repeat strategies.",
             "full_holdout_unique_user_items": sum(len(truth[uid]) for uid in eligible),
             "novel_holdout_unique_user_items": sum(len(novel[uid]) for uid in eligible),
         },
@@ -165,12 +195,14 @@ def evaluate(data_dir: Path, qdrant_path: Path | None = None) -> dict:
                 "indexed_products": len(indexed),
                 "limitation": "The index does not record vector provenance",
             }
-        for name in ["popularity", *recommenders]:
+        for name in ["popularity", "popularity_novel", *recommenders]:
             predictions = {}
             for uid in eligible:
                 recommendations = (
-                    popular.top(TOP_K, exclude_ids=bought[uid])
-                    if name == "popularity"
+                    popular.top(
+                        TOP_K, exclude_ids=bought[uid] if name == "popularity_novel" else ()
+                    )
+                    if name in ("popularity", "popularity_novel")
                     else recommenders[name].recommend(uid, TOP_K)
                 )
                 ranked = list(dict.fromkeys(item.product_id for item in recommendations))[:TOP_K]
@@ -178,22 +210,8 @@ def evaluate(data_dir: Path, qdrant_path: Path | None = None) -> dict:
                     raise ValueError(f"{name} recommended products outside the prepared catalog")
                 predictions[uid] = ranked
             result["results"][name] = {
-                "full_holdout": {
-                    "users_evaluated": len(eligible),
-                    "map_at_12": sum(
-                        average_precision_at_k(truth[u], predictions[u]) for u in eligible
-                    )
-                    / len(eligible),
-                },
-                "novel_item_holdout": {
-                    "users_evaluated": len(novel_users),
-                    "map_at_12": (
-                        sum(average_precision_at_k(novel[u], predictions[u]) for u in novel_users)
-                        / len(novel_users)
-                        if novel_users
-                        else None
-                    ),
-                },
+                "full_holdout": ranking_metrics(truth, predictions, eligible),
+                "novel_item_holdout": ranking_metrics(novel, predictions, novel_users),
                 "catalog_coverage": len({p for row in predictions.values() for p in row})
                 / len(catalog_ids),
                 "recommendation_fill": sum(map(len, predictions.values()))
@@ -212,9 +230,14 @@ def main(argv: Sequence[str] | None = None) -> None:
         "--qdrant-path", type=Path, help="Explicit existing compatible local image index"
     )
     parser.add_argument("--output", type=Path, help="Also write the JSON results to this file")
+    parser.add_argument(
+        "--holdout-end",
+        type=date.fromisoformat,
+        help="Last date of the seven-day holdout; permits earlier validation weeks",
+    )
     args = parser.parse_args(argv)
     try:
-        result = evaluate(args.data_dir, args.qdrant_path)
+        result = evaluate(args.data_dir, args.qdrant_path, holdout_end=args.holdout_end)
     except (ValueError, FileNotFoundError) as error:
         parser.error(str(error))
     text = json.dumps(result, indent=2, sort_keys=True, allow_nan=False)

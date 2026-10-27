@@ -17,6 +17,7 @@ from clothes_recommender.recommenders.collaborative import CollaborativeRecommen
 from clothes_recommender.recommenders.content_based import ContentBasedRecommender
 from clothes_recommender.recommenders.graph import GraphRecommender
 from clothes_recommender.recommenders.popularity import PopularityRecommender
+from clothes_recommender.recommenders.repeat import RepeatPurchaseRecommender
 from clothes_recommender.search import ProductSearch
 from clothes_recommender.vector_store import ProductVectorStore
 
@@ -32,6 +33,7 @@ class Services:
     content_based: ContentBasedRecommender
     collaborative: CollaborativeRecommender
     graph: GraphRecommender
+    repeat: RepeatPurchaseRecommender
     images_dir: Path
     # None when no LLM is configured: every other feature still works without an API key.
     assistant: ShoppingAssistant | None
@@ -75,6 +77,7 @@ def build_services(settings: Settings) -> Services:
         content_based=ContentBasedRecommender(customers, catalog, store, popularity),
         collaborative=CollaborativeRecommender(customers, catalog, shopper_purchases, popularity),
         graph=GraphRecommender(customers, catalog, popularity, links),
+        repeat=RepeatPurchaseRecommender(customers, popularity),
         images_dir=settings.images_dir,
         assistant=assistant,
         query_photos_dir=settings.query_photos_dir,
