@@ -115,10 +115,14 @@ def show_products(
                 if (photo := product_photo(product["product_id"])) is not None:
                     st.image(photo, width="stretch")
                 else:
-                    st.caption("No photo available.")
-                st.text(product["name"])
-                st.markdown(f"**€{product['price']:.2f}**")
-                st.caption(f"{product['product_type']} · {product['colour']}")
+                    with st.container(key=f"missing_photo_{context}_{product['product_id']}_{i}"):
+                        st.caption("No photo available.", text_alignment="center")
+                with st.container(
+                    key=f"product_info_{context}_{product['product_id']}_{i}", gap=None
+                ):
+                    st.text(product["name"])
+                    st.markdown(f"**€{product['price']:.2f}**")
+                    st.caption(f"{product['product_type']} · {product['colour']}")
                 evidence = reasons[i] if reasons is not None else []
                 if reason := recommendation_reason(evidence):
                     st.caption(reason)
@@ -186,11 +190,11 @@ def customer_selector(label: str, key: str) -> dict | None:
 
 
 def recommendations_tab() -> None:
-    left, right = st.columns([0.7, 0.3], gap="large")
+    left, right = st.columns([0.5, 0.5], gap="large", vertical_alignment="bottom")
     with left:
         st.title("For you")
-        st.caption("Your recent favorites, and new pieces to explore.")
-    with right, st.popover("Shopping history", width="stretch"):
+    toolbar = right.container(key="feed_controls", horizontal=True, horizontal_alignment="right")
+    with toolbar.popover("Shopping history"):
         example = customer_selector("User", "recommendation_user")
         if example is None:
             return
@@ -217,7 +221,7 @@ def recommendations_tab() -> None:
     strategies = ["repeat", "collaborative", "content", "graph"]
     if st.session_state.get("service_health", {}).get("ranking_enabled"):
         strategies.insert(0, "learned")
-    with st.expander("How picks are chosen"):
+    with toolbar.popover("How picks are chosen"):
         strategy = st.radio(
             "Strategy",
             strategies,
@@ -246,8 +250,7 @@ def recommendations_tab() -> None:
         "content": "New pieces with photos close to the styles in your history.",
         "graph": "New pieces connected through purchases and catalog attributes.",
     }
-    st.subheader("Worth another look" if strategy == "repeat" else "Selected for your history")
-    st.caption(descriptions[strategy])
+    st.write(descriptions[strategy])
     with st.spinner("Finding your pieces…"):
         show_hits(
             call_api(
@@ -264,20 +267,23 @@ def product_details(product_id: int) -> None:
     product = call_api("GET", f"/products/{product_id}")
     if product is None:
         return
-    left, right = st.columns([0.45, 0.55], gap="large")
-    with left:
-        if (photo := product_photo(product_id)) is not None:
-            st.image(photo, width="stretch")
-        else:
-            st.info("A photo is not available for this item.")
-    with right:
-        st.subheader(product["name"])
-        st.markdown(f"### €{product['price']:.2f}")
-        st.caption(
-            f"{product['product_type']} · {product['colour']} · {product.get('section', '')}"
-        )
-        st.text(product.get("description") or "No further description is available.")
-        st.caption("H&M research catalog, 2020. Prices are approximate; current stock is unknown.")
+    with st.container(key="product_detail_body"):
+        left, right = st.columns([0.45, 0.55], gap="large")
+        with left:
+            if (photo := product_photo(product_id)) is not None:
+                st.image(photo, width="stretch")
+            else:
+                st.info("A photo is not available for this item.")
+        with right:
+            st.subheader(product["name"])
+            st.markdown(f"**€{product['price']:.2f}**")
+            st.caption(
+                f"{product['product_type']} · {product['colour']} · {product.get('section', '')}"
+            )
+            st.text(product.get("description") or "No further description is available.")
+            st.caption(
+                "H&M research catalog, 2020. Prices are approximate; current stock is unknown."
+            )
     related = st.radio(
         "Explore this piece",
         ["similar", "complement"],
@@ -674,16 +680,21 @@ def image_search_tab() -> None:
         st.error("The example photo is no longer available.")
         return
     with st.container(key="photo_search_results"):
-        st.subheader("Visually similar pieces")
-        left, right = st.columns([0.2, 0.8])
+        left, right = st.columns([0.2, 0.8], gap="large")
         with left:
-            st.image(content, caption="Query photo", width="stretch")
-        with right, st.spinner("Searching photos…"):
-            show_hits(
-                call_api(
-                    "POST", "/search/image", params={"top_k": 9}, files={"file": (name, content)}
+            st.subheader("Query photo")
+            st.image(content, width="stretch")
+        with right:
+            st.subheader("Visually similar pieces")
+            with st.spinner("Searching photos…"):
+                show_hits(
+                    call_api(
+                        "POST",
+                        "/search/image",
+                        params={"top_k": 9},
+                        files={"file": (name, content)},
+                    )
                 )
-            )
 
 
 def evaluation_chart_spec(rows: list[dict], baseline: float | None) -> dict:

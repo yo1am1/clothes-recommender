@@ -31,8 +31,10 @@ everyone else accessible, and the Evaluation tab scores all eligible customers.
 
 Five native pages separate shopping from model inspection: **For you**, **Discover**,
 **Product connections**, **Model quality**, and **Assistant**. Only the active page
-runs its requests. Shopping-history and method controls stay secondary to product
-photos; every card opens details. Selected histories persist across navigation.
+runs its requests. A compact toolbar holds shopping-history and method controls.
+Cards group name, price and type below the photo; detailed ranking evidence opens
+on demand. Every card opens a product viewer with related pieces. Selected
+histories persist across navigation.
 Text and photo search share one discovery workspace. A mode switch leads to a
 focused search panel, with section filtering, query examples and a 10 MB upload limit.
 Matching pieces appear below the controls; catalog context stays in the footer.
