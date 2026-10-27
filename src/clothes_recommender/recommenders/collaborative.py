@@ -105,7 +105,7 @@ class CollaborativeRecommender:
         scores = np.zeros(len(self._product_ids))
         if known:
             rows, weights = zip(*known, strict=True)
-            scores = (np.asarray(weights) @ self._co_bought[list(rows)].toarray()) * self._damping
+            scores = np.asarray(weights) @ self._co_bought[list(rows)] * self._damping
             scores[list(rows)] = 0.0  # never re-recommend a purchase
         return scores, set(purchases)
 
