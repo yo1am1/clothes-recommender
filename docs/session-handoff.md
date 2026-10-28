@@ -1,3 +1,16 @@
+# Provenance experiment — 2026-10-28
+
+Opt-in ranker feature v2 adds explicit source flags and repeat/popularity ranks.
+V1 defaults/serving artifacts remain unchanged. The fixed-pool comparison on the
+already-inspected September 1/8 development weeks showed mixed MAP, with paired
+intervals crossing zero; **not promoted**. Candidate pools and base features were
+identical, and retained input/model hashes were verified unchanged. See the
+[provenance record](recommendation-provenance.md) for exact results and reproduction.
+358 offline tests pass, one integration test deselected; Ruff/format pass.
+The broader retrieval/latent-signal and judged-discovery work remains outstanding.
+
+---
+
 # Input-contract implementation — 2026-10-28
 
 New preparations preserve product family/department/index, normalized per-event

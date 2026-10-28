@@ -113,3 +113,21 @@ def test_initialization_failure_closes_owned_store(construction, monkeypatch, st
 
     assert raised.value is error
     construction.close.assert_called_once_with()
+
+
+@pytest.mark.parametrize("version,width", [(1, 10), (2, 15)])
+def test_service_loads_versioned_ranker(construction, version, width):
+    from clothes_recommender.recommenders.learned import RankerModel
+
+    model = RankerModel(
+        feature_version=version,
+        weights=[0.0] * width,
+        trained_through=date(2020, 8, 31),
+        training_window_ends=[date(2020, 8, 17), date(2020, 8, 24), date(2020, 8, 31)],
+        training_rows=10,
+        training_positives=1,
+    )
+    construction.settings.ranker_path.write_text(model.model_dump_json())
+    services = service_module.build_services(construction.settings)
+    assert services.learned is not None
+    assert services.learned.recommend(1)

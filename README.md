@@ -317,6 +317,8 @@ reaches the holdout cutoff. On the 819-customer final week, observed MAP@12 is
 The paired bootstrap interval crosses zero, so this does not establish superiority
 from that week alone. Full evidence and the three earlier validations are in the
 [recommendation audit](docs/recommendation-audit.md).
+The [fixed-pool provenance experiment](docs/recommendation-provenance.md) adds an
+opt-in versioned feature contract; its mixed development results were not promoted.
 See the [quality research and implementation direction](docs/recommendation-research.md)
 for the retrieval bottleneck, dataset comparison and next experiments.
 

@@ -82,7 +82,13 @@ def build_services(settings: Settings) -> Services:
             if model.trained_through > as_of:
                 raise ValueError("Ranker training exceeds this dataset's observation window")
             learned = LearnedRecommender(
-                customers, catalog, collaborative, popularity, model.weights, as_of
+                customers,
+                catalog,
+                collaborative,
+                popularity,
+                model.weights,
+                as_of,
+                feature_version=model.feature_version,
             )
         return Services(
             catalog=catalog,

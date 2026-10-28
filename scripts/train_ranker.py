@@ -13,13 +13,19 @@ import pandas as pd
 
 from clothes_recommender.catalog import CustomerData, ProductCatalog, load_shopper_purchases
 from clothes_recommender.recommenders.collaborative import CollaborativeRecommender
-from clothes_recommender.recommenders.learned import FEATURES, LearnedRecommender, RankerModel, fit
+from clothes_recommender.recommenders.learned import (
+    LearnedRecommender,
+    RankerModel,
+    feature_names,
+    fit,
+)
 from clothes_recommender.recommenders.popularity import PopularityRecommender
 from scripts.evaluate import chronological_split
 from scripts.fetch_photos import atomic_write
 
 
-def train(data_dir: Path, through: date | None = None) -> RankerModel:
+def train(data_dir: Path, through: date | None = None, *, feature_version: int = 1) -> RankerModel:
+    names = feature_names(feature_version)
     catalog = ProductCatalog.from_parquet(data_dir / "products.parquet")
     users = pd.read_parquet(data_dir / "users.parquet")
     purchases = pd.read_parquet(data_dir / "purchases.parquet")
@@ -46,8 +52,9 @@ def train(data_dir: Path, through: date | None = None) -> RankerModel:
             catalog,
             collaborative,
             popular,
-            np.zeros(len(FEATURES)),
+            np.zeros(len(names)),
             (cutoff - pd.Timedelta(days=1)).date(),
+            feature_version=feature_version,
         )
         truth = holdout.groupby("user_id")["product_id"].agg(set).to_dict()
         eligible = sorted(set(history["user_id"]) & truth.keys())
@@ -61,8 +68,9 @@ def train(data_dir: Path, through: date | None = None) -> RankerModel:
             labels.extend(int(pid in truth[user_id]) for pid in ids)
         ends.append(end)
     labels = np.asarray(labels)
-    weights = fit(np.vstack(feature_rows), labels)
+    weights = fit(np.vstack(feature_rows), labels, feature_version=feature_version)
     return RankerModel(
+        feature_version=feature_version,
         weights=weights.tolist(),
         trained_through=through,
         training_window_ends=ends,
@@ -76,9 +84,12 @@ def main(argv=None):
     parser.add_argument("--data-dir", type=Path, default=Path("data"))
     parser.add_argument("--train-through", type=date.fromisoformat)
     parser.add_argument("--output", type=Path, help="Defaults to <data-dir>/ranker.json")
+    parser.add_argument("--feature-version", type=int, choices=(1, 2), default=1)
     args = parser.parse_args(argv)
+    if args.feature_version == 2 and args.output is None:
+        parser.error("--output is required for experimental feature version 2")
     try:
-        model = train(args.data_dir, args.train_through)
+        model = train(args.data_dir, args.train_through, feature_version=args.feature_version)
     except (ValueError, FileNotFoundError) as error:
         parser.error(str(error))
     output = args.output or args.data_dir / "ranker.json"

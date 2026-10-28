@@ -34,10 +34,30 @@ FEATURES = (
 )
 
 
+PROVENANCE_FEATURES = (
+    *FEATURES,
+    "source_repeat",
+    "source_repeat_rank",
+    "source_collaborative",
+    "source_popular",
+    "source_popular_rank",
+)
+
+
+def feature_names(version: int) -> tuple[str, ...]:
+    if version == 1:
+        return FEATURES
+    if version == 2:
+        return PROVENANCE_FEATURES
+    raise ValueError("Unsupported ranker feature version")
+
+
 class RankerModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    feature_version: Literal[1] = 1
-    weights: list[FiniteFloat] = Field(min_length=len(FEATURES), max_length=len(FEATURES))
+    feature_version: Literal[1, 2] = 1
+    weights: list[FiniteFloat] = Field(
+        min_length=len(FEATURES), max_length=len(PROVENANCE_FEATURES)
+    )
     trained_through: date
     training_window_ends: list[date] = Field(min_length=3, max_length=3)
     training_rows: int = Field(gt=0)
@@ -45,6 +65,8 @@ class RankerModel(BaseModel):
 
     @model_validator(mode="after")
     def training_metadata(self) -> RankerModel:
+        if len(self.weights) != len(feature_names(self.feature_version)):
+            raise ValueError("Ranker weights must match its feature version")
         if (
             self.training_positives >= self.training_rows
             or self.training_window_ends != sorted(set(self.training_window_ends))
@@ -73,17 +95,21 @@ class LearnedRecommender:
         popular: PopularityRecommender,
         weights: list[float] | np.ndarray,
         as_of: date,
+        *,
+        feature_version: int = 1,
     ) -> None:
         self._customers = customers
         self._products = {item.product_id: item for item in catalog}
         self._collaborative = collaborative
         self._popular = popular
+        self._features = feature_names(feature_version)
         self._weights = np.asarray(weights, dtype=float)
-        if self._weights.shape != (len(FEATURES),) or not np.isfinite(self._weights).all():
+        if self._weights.shape != (len(self._features),) or not np.isfinite(self._weights).all():
             raise ValueError("Ranker weights must match the finite feature vector")
         self._repeat = RepeatPurchaseRecommender(customers, popular)
         self._as_of = as_of
         self._pop_scores = {item.product_id: item.score for item in popular.top(len(catalog))}
+        self._pop_ranks = {pid: rank for rank, pid in enumerate(list(self._pop_scores)[:50], 1)}
         self._pop_scale = math.log1p(max(self._pop_scores.values(), default=0)) or 1
 
     def candidates(self, user_id: int) -> tuple[list[int], np.ndarray]:
@@ -94,6 +120,7 @@ class LearnedRecommender:
         latest = {}
         for item in history:
             latest.setdefault(item.product_id, item.purchase_date)
+        repeat_ranks = {pid: rank for rank, pid in enumerate(list(latest)[:100], 1)}
         cf = self._collaborative.recommend(user_id, 50)
         cf_scores = {item.product_id: item.score for item in cf}
         cf_ranks = {item.product_id: rank for rank, item in enumerate(cf, 1)}
@@ -101,9 +128,9 @@ class LearnedRecommender:
         ids = list(
             dict.fromkeys(
                 [
-                    *list(latest)[:100],
+                    *repeat_ranks,
                     *(item.product_id for item in cf),
-                    *list(self._pop_scores)[:50],
+                    *self._pop_ranks,
                 ]
             )
         )
@@ -136,7 +163,17 @@ class LearnedRecommender:
                     sections[product.section] / total,
                 ]
             )
-        return ids, np.asarray(rows, dtype=float).reshape(-1, len(FEATURES))
+            if self._features == PROVENANCE_FEATURES:
+                rows[-1].extend(
+                    [
+                        float(pid in repeat_ranks),
+                        1 / repeat_ranks[pid] if pid in repeat_ranks else 0,
+                        float(pid in cf_ranks),
+                        float(pid in self._pop_ranks),
+                        1 / self._pop_ranks[pid] if pid in self._pop_ranks else 0,
+                    ]
+                )
+        return ids, np.asarray(rows, dtype=float).reshape(-1, len(self._features))
 
     def recommend(self, user_id: int, top_k: int = 10) -> list[ScoredProduct]:
         ids, features = self.candidates(user_id)
@@ -158,13 +195,15 @@ class LearnedRecommender:
         ]
 
 
-def fit(features: np.ndarray, labels: np.ndarray | list[int]) -> np.ndarray:
+def fit(
+    features: np.ndarray, labels: np.ndarray | list[int], *, feature_version: int = 1
+) -> np.ndarray:
     features = np.asarray(features, dtype=float)
     labels = np.asarray(labels, dtype=float)
     if (
         labels.ndim != 1
         or features.ndim != 2
-        or features.shape != (len(labels), len(FEATURES))
+        or features.shape != (len(labels), len(feature_names(feature_version)))
         or not len(labels)
         or not np.isfinite(features).all()
         or not np.isin(labels, [0, 1]).all()

@@ -178,6 +178,7 @@ def evaluate(
             popular,
             model.weights,
             (cutoff - pd.Timedelta(days=1)).date(),
+            feature_version=model.feature_version,
         )
         ranker_metadata = model.model_dump(mode="json", exclude={"weights"})
     result = {
