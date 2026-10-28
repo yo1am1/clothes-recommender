@@ -1,3 +1,28 @@
+# Continuation — 2026-10-28
+
+The OmniRoute popup is delivered on `feat/image-search-and-evaluation`. A later
+fix (`10d30cc`) rechecks chat availability after backend restarts/configuration
+changes instead of retaining stale page health. The full suite passes 342 tests
+with one integration test deselected; source lint passes.
+
+The three visible Orca Codex workers completed the bounded recommendation tuning
+round and independent reviews. Wider retrieval improves candidate reach; extra
+features and trees gave selection gains. The frozen rich24 design then failed
+September 9–15 confirmation: MAP 0.044529 vs current 0.043311 (+2.81%, below 5%),
+macro recall 9.14% vs 9.54%. It was rejected. No experimental model or dependency
+was promoted, and production data/model/index/evaluation files remain unchanged.
+See [the tuning record](recommendation-tuning.md) for definitions and results.
+Do not reuse the now-inspected confirmation as a fresh test for another design.
+September 16–22 was not rerun during this round.
+
+The preview remains at UI port 18511/API port 18710 with configured OmniRoute chat enabled.
+A bounded three-visitor recommendation check returned twelve products in every
+request, with p95 269 ms; this excludes image and model-provider latency.
+App-wide lag is not established as resolved by that limited check. All teammate
+tasks settled and the original visible terminal conversations were retained.
+
+---
+
 # Assistant and reliability update — 2026-10-27
 
 The current branch remains `feat/image-search-and-evaluation`. The system audit

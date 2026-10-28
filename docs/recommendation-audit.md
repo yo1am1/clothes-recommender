@@ -111,3 +111,12 @@ uv run python -m scripts.evaluate --data-dir data --ranker data/ranker.json \
 
 Data, photos, model files, indices and result JSON remain outside Git under ignored
 local data paths. No LLM call is needed for training, recommendations or evaluation.
+
+
+## Subsequent tuning decision
+
+The [October 28 tuning round](recommendation-tuning.md) tested wider candidate
+pools, additional history/sales features, tree objectives and product families.
+The frozen challenger failed separate confirmation: MAP gained only 2.81% and
+macro recall fell. It was not promoted; current production scores and model
+remain unchanged. See the report for trial definitions, cohort limits and results.

@@ -60,7 +60,8 @@ approximate prices and related pieces.
 All-purchase MAP@12, customer hit rate and recall appear beside the strong
 buy-again baseline. The 819-customer held-out result includes the uncertainty
 interval and catalog-selection limitations; the observed gain is not presented as
-established superiority.
+established superiority. A [subsequent tuning round](docs/recommendation-tuning.md)
+failed confirmation and was not promoted.
 
 ![Clothy model quality](docs/screenshots/mvp-quality.jpg)
 
