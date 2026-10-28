@@ -1,0 +1,309 @@
+{
+  "protocol": {
+    "scope": "Retrospective development only; already inspected weeks; no serving promotion or fresh confirmation",
+    "ends": [
+      "2020-09-01",
+      "2020-09-08"
+    ],
+    "channels": "family/recent28day basket/SVD32 fold-in, top50each; defaults frozen before retrieval results",
+    "arms": [
+      "fresh v1",
+      "tree_base24features",
+      "tree_expanded24features"
+    ],
+    "tree": "400roundcap,31leaves,maxdepth6,minleaf50,lr.05,L2=1,seed42,threads2; earlystop30 on MAP of third prior week, refit3priorweeks",
+    "cache": "Only immutable per-window CandidateRows reused within this process for identical enriched data; algorithms and labels unchanged",
+    "source_sha256": {
+      "scripts/compare_retrieval.py": "87df3ceedfaf9dba13a1074d507cee19ddd2f47ef2fbb774d7c38fd85d923843",
+      "scripts/retrieval_channels.py": "ba53e814a10b0ecd6a21a80ce86cb09c7a14a2cbb08dd090c712da0bfd0559fc",
+      "src/clothes_recommender/recommenders/learned.py": "c1c9cbbc16a03b2b7530fb1fc0031cd99f257e6c49148ba5f65c4c34fe266e3e"
+    }
+  },
+  "results": [
+    {
+      "scope": "Retrospective experimental comparison; no serving promotion. Prepared population/catalog selection may use the full observation window.",
+      "retrieval": {
+        "users": 883,
+        "truth_pairs": 3251,
+        "sources": {
+          "base": {
+            "reachable_pairs": 433,
+            "additional_pairs_over_base": 0,
+            "micro_recall": 0.13318978775761303,
+            "macro_recall": 0.15056222802828662,
+            "users_with_reachable_truth": 291,
+            "oracle_map_at_12": 0.1519701136915179,
+            "candidates_min_median_max": [
+              85,
+              104.0,
+              170
+            ]
+          },
+          "family": {
+            "reachable_pairs": 59,
+            "additional_pairs_over_base": 14,
+            "micro_recall": 0.018148262073208243,
+            "macro_recall": 0.02486691818015514,
+            "users_with_reachable_truth": 50,
+            "oracle_map_at_12": 0.024975323531382418,
+            "candidates_min_median_max": [
+              0,
+              6.0,
+              50
+            ]
+          },
+          "recent_basket": {
+            "reachable_pairs": 155,
+            "additional_pairs_over_base": 29,
+            "micro_recall": 0.04767763764995386,
+            "macro_recall": 0.05519124014876256,
+            "users_with_reachable_truth": 119,
+            "oracle_map_at_12": 0.05561691988645559,
+            "candidates_min_median_max": [
+              0,
+              50.0,
+              50
+            ]
+          },
+          "latent": {
+            "reachable_pairs": 169,
+            "additional_pairs_over_base": 68,
+            "micro_recall": 0.0519840049215626,
+            "macro_recall": 0.05629646382677496,
+            "users_with_reachable_truth": 129,
+            "oracle_map_at_12": 0.05659221236797683,
+            "candidates_min_median_max": [
+              50,
+              50.0,
+              50
+            ]
+          },
+          "union": {
+            "reachable_pairs": 533,
+            "additional_pairs_over_base": 100,
+            "micro_recall": 0.16394955398338973,
+            "macro_recall": 0.18480940290316797,
+            "users_with_reachable_truth": 344,
+            "oracle_map_at_12": 0.18642446957849007,
+            "candidates_min_median_max": [
+              104,
+              156.0,
+              243
+            ]
+          }
+        },
+        "holdout_end": "2020-09-01",
+        "cutoff": "2020-08-26",
+        "channel_fit_seconds": 41.80489002499962,
+        "candidate_seconds_p50_p95": [
+          0.00773455599846784,
+          0.00900586379430024
+        ]
+      },
+      "ranking": {
+        "metrics": {
+          "v1": {
+            "users_evaluated": 883,
+            "map_at_12": 0.028576534435113144,
+            "hit_rate": 0.12004530011325028,
+            "recall_at_12": 0.05613516630034341
+          },
+          "tree_base": {
+            "users_evaluated": 883,
+            "map_at_12": 0.02889202031732232,
+            "hit_rate": 0.13590033975084936,
+            "recall_at_12": 0.06163928320793988
+          },
+          "tree_expanded": {
+            "users_evaluated": 883,
+            "map_at_12": 0.03135195613930851,
+            "hit_rate": 0.1404303510758777,
+            "recall_at_12": 0.06489931435585325
+          },
+          "repeat": {
+            "users_evaluated": 883,
+            "map_at_12": 0.025383093663812802,
+            "hit_rate": 0.10532276330690826,
+            "recall_at_12": 0.047146869458139444
+          }
+        },
+        "paired_vs_v1": {
+          "tree_base": {
+            "mean_delta": 0.00031548588220917367,
+            "lower_95": -0.0033901538586443274,
+            "upper_95": 0.004365401450645882,
+            "paired_customers": 883,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          },
+          "tree_expanded": {
+            "mean_delta": 0.002775421704195366,
+            "lower_95": -0.0012294709470378861,
+            "upper_95": 0.006995018571649576,
+            "paired_customers": 883,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          }
+        },
+        "paired_expanded_vs_base": {
+          "mean_delta": 0.0024599358219861913,
+          "lower_95": 0.00034740613574438993,
+          "upper_95": 0.0049615139013496875,
+          "paired_customers": 883,
+          "bootstrap_resamples": 2000,
+          "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+        },
+        "selected_rounds": {
+          "tree_base": 28,
+          "tree_expanded": 21
+        },
+        "protocol": "400-round cap; temporal early stopping on third prior training week, then refit all three prior weeks. Same tree capacity/search budget; iteration counts selected separately. No target labels used for fitting."
+      },
+      "total_seconds": 181.63
+    },
+    {
+      "scope": "Retrospective experimental comparison; no serving promotion. Prepared population/catalog selection may use the full observation window.",
+      "retrieval": {
+        "users": 915,
+        "truth_pairs": 3267,
+        "sources": {
+          "base": {
+            "reachable_pairs": 449,
+            "additional_pairs_over_base": 0,
+            "micro_recall": 0.1374349556167738,
+            "macro_recall": 0.1736011010528525,
+            "users_with_reachable_truth": 319,
+            "oracle_map_at_12": 0.174658883921179,
+            "candidates_min_median_max": [
+              76,
+              104.0,
+              174
+            ]
+          },
+          "family": {
+            "reachable_pairs": 58,
+            "additional_pairs_over_base": 11,
+            "micro_recall": 0.01775329048056321,
+            "macro_recall": 0.0255814434502959,
+            "users_with_reachable_truth": 50,
+            "oracle_map_at_12": 0.02567004944054124,
+            "candidates_min_median_max": [
+              0,
+              4.0,
+              50
+            ]
+          },
+          "recent_basket": {
+            "reachable_pairs": 192,
+            "additional_pairs_over_base": 33,
+            "micro_recall": 0.05876951331496786,
+            "macro_recall": 0.07308286716676306,
+            "users_with_reachable_truth": 145,
+            "oracle_map_at_12": 0.07354844305663981,
+            "candidates_min_median_max": [
+              0,
+              50.0,
+              50
+            ]
+          },
+          "latent": {
+            "reachable_pairs": 210,
+            "additional_pairs_over_base": 77,
+            "micro_recall": 0.0642791551882461,
+            "macro_recall": 0.07942949334085977,
+            "users_with_reachable_truth": 162,
+            "oracle_map_at_12": 0.08000796410632477,
+            "candidates_min_median_max": [
+              50,
+              50.0,
+              50
+            ]
+          },
+          "union": {
+            "reachable_pairs": 559,
+            "additional_pairs_over_base": 110,
+            "micro_recall": 0.17110498928680748,
+            "macro_recall": 0.20946711904624463,
+            "users_with_reachable_truth": 371,
+            "oracle_map_at_12": 0.2109257682208502,
+            "candidates_min_median_max": [
+              104,
+              158.0,
+              255
+            ]
+          }
+        },
+        "holdout_end": "2020-09-08",
+        "cutoff": "2020-09-02",
+        "channel_fit_seconds": 46.22118769599183,
+        "candidate_seconds_p50_p95": [
+          0.007685137010412291,
+          0.008934568405675235
+        ]
+      },
+      "ranking": {
+        "metrics": {
+          "v1": {
+            "users_evaluated": 915,
+            "map_at_12": 0.030523774040167484,
+            "hit_rate": 0.11912568306010929,
+            "recall_at_12": 0.06312836525951279
+          },
+          "tree_base": {
+            "users_evaluated": 915,
+            "map_at_12": 0.027926192710345715,
+            "hit_rate": 0.13224043715846995,
+            "recall_at_12": 0.07201836665485989
+          },
+          "tree_expanded": {
+            "users_evaluated": 915,
+            "map_at_12": 0.030756946908586255,
+            "hit_rate": 0.14098360655737704,
+            "recall_at_12": 0.0752111751243863
+          },
+          "repeat": {
+            "users_evaluated": 915,
+            "map_at_12": 0.0243398097551103,
+            "hit_rate": 0.10601092896174863,
+            "recall_at_12": 0.055908046558962664
+          }
+        },
+        "paired_vs_v1": {
+          "tree_base": {
+            "mean_delta": -0.002597581329821768,
+            "lower_95": -0.008329789634571056,
+            "upper_95": 0.0030125397876763983,
+            "paired_customers": 915,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          },
+          "tree_expanded": {
+            "mean_delta": 0.00023317286841877024,
+            "lower_95": -0.004814872919278657,
+            "upper_95": 0.005282643850027729,
+            "paired_customers": 915,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          }
+        },
+        "paired_expanded_vs_base": {
+          "mean_delta": 0.002830754198240537,
+          "lower_95": -0.001431617633530201,
+          "upper_95": 0.007585380920182833,
+          "paired_customers": 915,
+          "bootstrap_resamples": 2000,
+          "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+        },
+        "selected_rounds": {
+          "tree_base": 1,
+          "tree_expanded": 6
+        },
+        "protocol": "400-round cap; temporal early stopping on third prior training week, then refit all three prior weeks. Same tree capacity/search budget; iteration counts selected separately. No target labels used for fitting."
+      },
+      "total_seconds": 59.7
+    }
+  ],
+  "retained_serving_input_model_hashes_unchanged": true,
+  "repeat_control_note": "Buy-again baseline computed afterward with identical cohorts/full truth; reporting-only addition, no challenger fitting or selection changed.",
+  "implementation_note": "After the fixed run, the harness added repeat-control reporting and early missing-dependency checks. Candidate and challenger fitting algorithms were unchanged."
+}

@@ -245,3 +245,31 @@ def test_versioned_training_evaluation_roundtrip(tmp_path, sample_products, vers
     result = evaluate(tmp_path, holdout_end=date(2020, 1, 29), ranker_path=path)
     assert result["ranker"]["feature_version"] == version
     assert result["results"]["learned"]["full_holdout"]["users_evaluated"] == 3
+
+
+def test_explicit_experiment_candidates_preserve_base_rows_and_validate_catalog(sample_catalog):
+    from unittest.mock import Mock
+
+    history = pd.DataFrame(
+        [(1, 1, "2020-01-01")], columns=["user_id", "product_id", "purchase_date"]
+    )
+    customers = CustomerData(pd.DataFrame({"user_id": [1], "age": [30]}), history)
+    cf = Mock()
+    cf.recommend.return_value = []
+    popular = PopularityRecommender(history)
+    ranker = LearnedRecommender(
+        customers,
+        sample_catalog,
+        cf,
+        popular,
+        np.zeros(len(PROVENANCE_FEATURES)),
+        date(2020, 1, 8),
+        feature_version=2,
+    )
+    ids, features = ranker.candidates(1)
+    extended, rows = ranker.candidates(1, extra_ids=[3, 3, 1])
+    assert extended == [*ids, 3]
+    np.testing.assert_array_equal(rows[: len(ids)], features)
+    assert rows[-1, PROVENANCE_FEATURES.index("source_repeat")] == 0
+    with pytest.raises(ValueError, match="prepared catalog"):
+        ranker.candidates(1, extra_ids=[999])

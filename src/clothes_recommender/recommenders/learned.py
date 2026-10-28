@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from collections import Counter
+from collections.abc import Iterable
 from datetime import date
 from pathlib import Path
 from typing import Literal
@@ -112,7 +113,10 @@ class LearnedRecommender:
         self._pop_ranks = {pid: rank for rank, pid in enumerate(list(self._pop_scores)[:50], 1)}
         self._pop_scale = math.log1p(max(self._pop_scores.values(), default=0)) or 1
 
-    def candidates(self, user_id: int) -> tuple[list[int], np.ndarray]:
+    def candidates(
+        self, user_id: int, *, extra_ids: Iterable[int] = ()
+    ) -> tuple[list[int], np.ndarray]:
+        """Fixed pool plus explicitly supplied experiment candidates; serving supplies none."""
         if self._customers.get_user(user_id) is None:
             raise UnknownUserError(user_id)
         history = self._customers.purchases_for(user_id)
@@ -131,9 +135,12 @@ class LearnedRecommender:
                     *repeat_ranks,
                     *(item.product_id for item in cf),
                     *self._pop_ranks,
+                    *extra_ids,
                 ]
             )
         )
+        if any(pid not in self._products for pid in ids):
+            raise ValueError("Candidates must belong to the prepared catalog")
         types = Counter(
             self._products[item.product_id].product_type
             for item in history

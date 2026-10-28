@@ -1,3 +1,23 @@
+# Complementary retrieval implementation — 2026-10-28
+
+Parquet shard preparation is delivered (`05a463b`). An isolated enriched bundle
+reproduces all retained fields exactly and has a verified real user/crowd crosswalk.
+One truncated raw shard was reconstructed only in an isolated source copy; all9
+raw files match a pinned mirror SHA-256 manifest. Serving data/model remain unchanged.
+
+Offline family/basket/SVD32-fold-in channels and the comparison harness are complete.
+On Sep1/8, reachable truth pairs rose433→533 and449→559. Expanded-tree MAP was
+.031352/.030757 versus v1 .028577/.030524, with higher hit/macro recall but both
+paired MAP intervals crossing zero. The second gain is below5%; no model promotion
+or independent confirmation was performed. See the [retrieval record](recommendation-retrieval.md)
+and aggregate JSON for protocols, limitations and reproduction. Both development
+weeks remain inspected; no fresh confirmation labels were consumed.
+
+Only two teammates continued after the Owner limit; extra review was cancelled.
+Implementation and integration-review tasks settled, conversations retained.
+
+---
+
 # Provenance experiment — 2026-10-28
 
 Opt-in ranker feature v2 adds explicit source flags and repeat/popularity ranks.
