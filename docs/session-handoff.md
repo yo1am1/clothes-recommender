@@ -1,3 +1,17 @@
+# Research continuation — 2026-10-28
+
+Three visible Orca Codex workers completed primary-source recommendation research.
+The [synthesis](recommendation-research.md) documents the independently reproduced
+424/2,702 candidate reach, discarded metadata and missing sampled/crowd identity
+crosswalk, original top-team retrieval evidence, and alternative dataset limits.
+Keep/enrich H&M; prioritize retrieval provenance and input contracts, with separate
+judged discovery evaluation. Limited failed trials do not establish impossibility.
+No product/model/data/index/dependency changes were made. September 16–22 was
+replayed read-only for diagnosis after tuning; it remains an already-inspected
+retrospective benchmark. No September window is fresh for a newly selected design.
+
+---
+
 # Continuation — 2026-10-28
 
 The OmniRoute popup is delivered on `feat/image-search-and-evaluation`. A later

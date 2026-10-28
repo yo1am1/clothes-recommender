@@ -298,6 +298,8 @@ reaches the holdout cutoff. On the 819-customer final week, observed MAP@12 is
 The paired bootstrap interval crosses zero, so this does not establish superiority
 from that week alone. Full evidence and the three earlier validations are in the
 [recommendation audit](docs/recommendation-audit.md).
+See the [quality research and implementation direction](docs/recommendation-research.md)
+for the retrieval bottleneck, dataset comparison and next experiments.
 
 The full holdout, including repeat purchases, is now the primary comparison.
 `strategy=repeat` exposes the strong recent-purchases plus best-sellers baseline.
