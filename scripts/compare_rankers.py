@@ -298,6 +298,7 @@ def main(argv=None):
         return result
 
     try:
+        _lightgbm()
         before = hashes()
         result = (
             confirm(args.data_dir, args.holdout_end[0])
