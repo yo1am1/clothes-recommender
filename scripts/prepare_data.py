@@ -16,6 +16,8 @@ products/users/purchases parquet files plus downsized photos of every product th
 Co-purchase links between those products are counted over all shoppers, not just the
 sample, so they stay dense; shopper_purchases.parquet keeps every shopper's purchases of
 catalog products, under anonymous integer ids, for popularity and collaborative filtering.
+Users retain the matching crowd shopper_id; event prices remain in original normalized
+units and sales channels are preserved for past-only experiments.
 The archive is read in place: nothing else is extracted.
 """
 
@@ -63,6 +65,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Kaggle competition zip (the download command above writes it here), "
         "or a directory with the unzipped CSVs.",
     )
+    parser.add_argument(
+        "--data-dir", type=Path, help="Output directory; defaults to configured data_dir."
+    )
     parser.add_argument("--weeks", type=int, default=12, help="Weeks of transactions to keep.")
     parser.add_argument("--customers", type=int, default=5000, help="Customers to sample.")
     parser.add_argument("--seed", type=int, default=42)
@@ -101,13 +106,14 @@ class RawSource:
 def read_recent_transactions(archive: RawSource, since: date) -> pd.DataFrame:
     """Stream the 31M-row transactions file and keep rows from `since` onwards."""
     options = csv.ConvertOptions(
-        include_columns=["t_dat", "customer_id", "article_id", "price"],
+        include_columns=["t_dat", "customer_id", "article_id", "price", "sales_channel_id"],
         strings_can_be_null=True,
         column_types={
             "t_dat": pa.date32(),
             "customer_id": pa.string(),
             "article_id": pa.int64(),
             "price": pa.float64(),
+            "sales_channel_id": pa.int8(),
         },
     )
     batches = []
@@ -192,6 +198,8 @@ def prepare(archive_path: Path, data_dir: Path, weeks: int, customer_count: int,
             raise ValueError(
                 "Recent transactions must have customer/article IDs and finite positive prices"
             )
+        if not transactions["sales_channel_id"].isin([1, 2]).all():
+            raise ValueError("Sales channel must be 1 (store) or 2 (online)")
         customer_ids = sample_customers(transactions, customer_count, seed)
         if not customer_ids:
             raise ValueError("No eligible customers in the requested transaction window")
@@ -237,6 +245,9 @@ def prepare(archive_path: Path, data_dir: Path, weeks: int, customer_count: int,
         )[
             [
                 "product_id",
+                "product_code",
+                "department_name",
+                "index_name",
                 "name",
                 "product_type",
                 "product_group",
@@ -256,15 +267,23 @@ def prepare(archive_path: Path, data_dir: Path, weeks: int, customer_count: int,
             user_id_of
         ):
             raise ValueError("customers.csv must contain exactly one row per selected customer")
+        # Use the same categorical codes as crowd events; sampled IDs are a separate space.
+        shopper_id_of = {
+            customer_id: shopper_id
+            for shopper_id, customer_id in enumerate(transactions["customer_id"].cat.categories)
+        }
         users = customers.assign(
             user_id=lambda df: df["customer_id"].map(user_id_of),
             age=lambda df: df["age"].astype("Int64"),
-        ).sort_values("user_id")[["user_id", "age"]]
+            shopper_id=lambda df: df["customer_id"].map(shopper_id_of).astype("int32"),
+        ).sort_values("user_id")[["user_id", "age", "shopper_id"]]
         purchases = pd.DataFrame(
             {
                 "user_id": bought["customer_id"].astype(str).map(user_id_of),
                 "product_id": bought["article_id"],
                 "purchase_date": bought["t_dat"],
+                "price_normalized": bought["price"],
+                "sales_channel_id": bought["sales_channel_id"],
             }
         )
 
@@ -277,6 +296,8 @@ def prepare(archive_path: Path, data_dir: Path, weeks: int, customer_count: int,
                 "shopper_id": in_catalog["customer_id"].cat.codes.astype("int32"),
                 "product_id": in_catalog["article_id"],
                 "purchase_date": in_catalog["t_dat"],
+                "price_normalized": in_catalog["price"],
+                "sales_channel_id": in_catalog["sales_channel_id"],
             }
         )
         if archive.has_photos:
@@ -308,7 +329,13 @@ def prepare(archive_path: Path, data_dir: Path, weeks: int, customer_count: int,
 def main(argv: Sequence[str] | None = None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     args = parse_args(argv)
-    prepare(args.archive, get_settings().data_dir, args.weeks, args.customers, args.seed)
+    prepare(
+        args.archive,
+        args.data_dir or get_settings().data_dir,
+        args.weeks,
+        args.customers,
+        args.seed,
+    )
 
 
 if __name__ == "__main__":

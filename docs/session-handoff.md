@@ -1,3 +1,15 @@
+# Input-contract implementation — 2026-10-28
+
+New preparations preserve product family/department/index, normalized per-event
+prices and sales channels, and an explicit anonymous sampled-user/crowd crosswalk.
+`--data-dir` allows isolated experiment output. Synthetic regression checks cover
+identity mismatch, source-unit prices, invalid channels and serving compatibility;
+349 offline tests pass, one integration test deselected, Ruff/format pass.
+Serving datasets/models/indices were not regenerated. Old bundles still work;
+new fields require a new preparation. See README Data for the field contract.
+
+---
+
 # Research continuation — 2026-10-28
 
 Three visible Orca Codex workers completed primary-source recommendation research.

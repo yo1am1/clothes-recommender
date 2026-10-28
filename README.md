@@ -120,6 +120,25 @@ competition discussion) gives realistic euro price points such as €29.99, so t
 are approximations. H&M licenses the data for non-commercial research use, so it is not part
 of this repository.
 
+New preparations also retain `product_code`, `department_name` and `index_name` in
+products, and `price_normalized` (the original source units) and `sales_channel_id`
+(1 store, 2 online) on both sampled and crowd events. `users.parquet.shopper_id`
+provides the explicit mapping into that preparation's crowd events; **do not join
+sampled `user_id` directly to crowd `shopper_id`**, or combine mappings from different
+preparations. Original customer identifiers are not saved. Serving responses retain
+their existing fields, and older prepared datasets remain supported.
+
+Prepare experimental inputs separately from the running app:
+
+```sh
+uv run python -m scripts.prepare_data --archive data/raw/csvs --data-dir data/experiments/enriched
+```
+
+This command retains the existing full-window sampling rule; it does not create a
+new untouched evaluation set. New historical price features must use event prices
+before each cutoff, rather than the displayed full-window product median. Existing
+prepared files gain these fields only after regeneration.
+
 ### Shopify enrichment and graph behavior
 
 The saved mapping in `taxonomy/hm_shopify_categories.json` assigns H&M product types to

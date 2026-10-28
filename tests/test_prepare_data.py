@@ -13,6 +13,8 @@ from scripts.prepare_data import HM_PRICE_SCALE, PHOTO_MAX_SIZE, co_purchases, p
 ARTICLES = pd.DataFrame(
     {
         "article_id": [108775015, 108775044, 110065001],
+        "product_code": [108775, 108775, 110065],
+        "department_name": ["Jersey Basic", "Jersey Basic", "Jersey"],
         "prod_name": ["Strap top", "Strap top", "OP T-shirt"],
         "product_type_name": ["Vest top", "Vest top", "T-shirt"],
         "product_group_name": ["Garment Upper body"] * 3,
@@ -149,7 +151,13 @@ def test_counts_co_purchases_from_unsampled_shoppers(data_dir: Path) -> None:
 def test_keeps_every_shoppers_catalog_purchases_anonymously(data_dir: Path) -> None:
     shoppers = pd.read_parquet(data_dir / "shopper_purchases.parquet")
 
-    assert list(shoppers.columns) == ["shopper_id", "product_id", "purchase_date"]
+    assert list(shoppers.columns) == [
+        "shopper_id",
+        "product_id",
+        "purchase_date",
+        "price_normalized",
+        "sales_channel_id",
+    ]
     assert shoppers["shopper_id"].dtype == "int32"
     # Sampled a and b plus unsampled c, inside the window and the photographed catalog only.
     assert shoppers["shopper_id"].nunique() == 3
@@ -309,3 +317,95 @@ def test_reads_unzipped_directory_with_photos(archive_factory, tmp_path) -> None
 
     assert sorted(pd.read_parquet(out / "products.parquet")["product_id"]) == PHOTOS
     assert sorted(path.stem for path in (out / "images").iterdir()) == [str(p) for p in PHOTOS]
+
+
+def test_preserves_family_metadata_and_event_observations(data_dir: Path) -> None:
+    products = pd.read_parquet(data_dir / "products.parquet").set_index("product_id")
+    assert products.loc[108775015, "product_code"] == 108775
+    assert products.loc[108775015, "department_name"] == "Jersey Basic"
+    assert products.loc[110065001, "index_name"] == "Menswear"
+    for filename in ["purchases.parquet", "shopper_purchases.parquet"]:
+        events = pd.read_parquet(data_dir / filename)
+        assert set(events["sales_channel_id"]) == {2}
+        assert events["sales_channel_id"].dtype == "int8"
+        assert set(events.loc[events["product_id"] == 108775015, "price_normalized"]) == {0.0508}
+        assert events.loc[events["product_id"] == 110065001, "price_normalized"].nunique() == 2
+        assert "customer_id" not in events.columns
+
+
+def test_crosswalk_matches_crowd_histories_after_sampling_and_photo_filtering(
+    archive_factory, tmp_path
+) -> None:
+    # A single sampled customer has user_id=1, but never crowd shopper_id=1 here.
+    transactions = pd.concat(
+        [
+            _transactions(),
+            pd.DataFrame(
+                [("2020-09-20", "0", 108775015, 0.03, 1)],
+                columns=["t_dat", "customer_id", "article_id", "price", "sales_channel_id"],
+            ),
+        ]
+    )
+    archive = archive_factory(transactions=transactions)
+    out = tmp_path / "data"
+    prepare(archive, out, weeks=1, customer_count=1, seed=0)
+    users = pd.read_parquet(out / "users.parquet")
+    sampled = pd.read_parquet(out / "purchases.parquet")
+    crowd = pd.read_parquet(out / "shopper_purchases.parquet")
+    assert users["user_id"].tolist() == [1]
+    assert users["shopper_id"].tolist() == [2]  # customer b, after 0 and a
+    assert users["shopper_id"].dtype == "int32"
+    assert "customer_id" not in users.columns
+    columns = ["product_id", "purchase_date", "price_normalized", "sales_channel_id"]
+    pd.testing.assert_frame_equal(
+        sampled[columns].reset_index(drop=True),
+        crowd.loc[crowd["shopper_id"] == users.iloc[0]["shopper_id"], columns].reset_index(
+            drop=True
+        ),
+    )
+
+
+@pytest.mark.parametrize("channel", [None, 0, 3])
+def test_rejects_invalid_sales_channels(archive_factory, tmp_path, channel) -> None:
+    archive = archive_factory(transactions=_transactions().assign(sales_channel_id=channel))
+    with pytest.raises(ValueError, match="Sales channel"):
+        prepare(archive, tmp_path / "data", weeks=1, customer_count=10, seed=0)
+    assert not (tmp_path / "data").exists()
+
+
+def test_cli_prepares_to_explicit_experiment_directory(archive_factory, tmp_path) -> None:
+    from scripts.prepare_data import main
+
+    out = tmp_path / "experiment"
+    main(
+        [
+            "--archive",
+            str(archive_factory()),
+            "--data-dir",
+            str(out),
+            "--weeks",
+            "1",
+            "--customers",
+            "1",
+        ]
+    )
+    assert (out / "users.parquet").exists()
+
+
+def test_enriched_preparation_remains_compatible_with_serving(data_dir: Path) -> None:
+    from clothes_recommender.catalog import CustomerData, ProductCatalog, load_shopper_purchases
+    from clothes_recommender.recommenders.collaborative import CollaborativeRecommender
+    from clothes_recommender.recommenders.popularity import PopularityRecommender
+
+    catalog = ProductCatalog.from_parquet(data_dir / "products.parquet")
+    customers = CustomerData.from_parquet(
+        data_dir / "users.parquet", data_dir / "purchases.parquet"
+    )
+    shoppers = load_shopper_purchases(data_dir / "shopper_purchases.parquet", customers)
+    popular = PopularityRecommender(shoppers)
+    collaborative = CollaborativeRecommender(customers, catalog, shoppers, popular)
+    assert set(customers.get_user(1).model_dump()) == {"user_id", "age"}
+    assert "shopper_id" not in customers.purchases_for(1)[0].model_dump()
+    assert "price_normalized" not in customers.purchases_for(1)[0].model_dump()
+    assert "product_code" not in catalog.get(108775015).model_dump()
+    assert collaborative.recommend(2, 2)
