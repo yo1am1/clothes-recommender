@@ -1,0 +1,739 @@
+{
+  "development": {
+    "scope": "Previously inspected development weeks; fixed users/candidates/full truth; no fresh confirmation or serving promotion",
+    "protocol": "Three prior labeled weeks; first two fit, third selects rounds, all three refit. Fixed 400-round cap, patience30, seed42, 31leaves/depth6/minleaf50/lr.05/L2=1. No target labels fit or select models.",
+    "context_features": [
+      "item_count_1d_log",
+      "item_count_7d_log",
+      "item_count_28d_log",
+      "item_last_sale_days_log",
+      "item_first_sale_days_log",
+      "item_trend_7d_28d",
+      "item_online_share_28d",
+      "item_price_median_28d",
+      "item_price_observed_28d",
+      "price_log_ratio",
+      "user_price_missing",
+      "user_history_count_log",
+      "user_recent_7d_count_log",
+      "user_last_purchase_days_log",
+      "user_online_share",
+      "family_affinity",
+      "colour_affinity",
+      "department_affinity"
+    ],
+    "results": [
+      {
+        "holdout_end": "2020-09-01",
+        "retrieval": {
+          "users": 883,
+          "truth_pairs": 3251,
+          "sources": {
+            "base": {
+              "reachable_pairs": 433,
+              "additional_pairs_over_base": 0,
+              "micro_recall": 0.13318978775761303,
+              "macro_recall": 0.15056222802828662,
+              "users_with_reachable_truth": 291,
+              "oracle_map_at_12": 0.1519701136915179,
+              "candidates_min_median_max": [
+                85,
+                104.0,
+                170
+              ]
+            },
+            "family": {
+              "reachable_pairs": 59,
+              "additional_pairs_over_base": 14,
+              "micro_recall": 0.018148262073208243,
+              "macro_recall": 0.02486691818015514,
+              "users_with_reachable_truth": 50,
+              "oracle_map_at_12": 0.024975323531382418,
+              "candidates_min_median_max": [
+                0,
+                6.0,
+                50
+              ]
+            },
+            "recent_basket": {
+              "reachable_pairs": 155,
+              "additional_pairs_over_base": 29,
+              "micro_recall": 0.04767763764995386,
+              "macro_recall": 0.05519124014876256,
+              "users_with_reachable_truth": 119,
+              "oracle_map_at_12": 0.05561691988645559,
+              "candidates_min_median_max": [
+                0,
+                50.0,
+                50
+              ]
+            },
+            "latent": {
+              "reachable_pairs": 169,
+              "additional_pairs_over_base": 68,
+              "micro_recall": 0.0519840049215626,
+              "macro_recall": 0.05629646382677496,
+              "users_with_reachable_truth": 129,
+              "oracle_map_at_12": 0.05659221236797683,
+              "candidates_min_median_max": [
+                50,
+                50.0,
+                50
+              ]
+            },
+            "union": {
+              "reachable_pairs": 533,
+              "additional_pairs_over_base": 100,
+              "micro_recall": 0.16394955398338973,
+              "macro_recall": 0.18480940290316797,
+              "users_with_reachable_truth": 344,
+              "oracle_map_at_12": 0.18642446957849007,
+              "candidates_min_median_max": [
+                104,
+                156.0,
+                243
+              ]
+            }
+          },
+          "holdout_end": "2020-09-01",
+          "cutoff": "2020-08-26",
+          "channel_fit_seconds": 41.858025971989264,
+          "candidate_seconds_p50_p95": [
+            0.007632250999449752,
+            0.008860991999972612
+          ]
+        },
+        "metrics": {
+          "previous_expanded": {
+            "users_evaluated": 883,
+            "map_at_12": 0.03135195613930851,
+            "hit_rate": 0.1404303510758777,
+            "recall_at_12": 0.06489931435585325
+          },
+          "loss_selection": {
+            "users_evaluated": 883,
+            "map_at_12": 0.03142582167089393,
+            "hit_rate": 0.14269535673839184,
+            "recall_at_12": 0.06493212098548887
+          },
+          "context_binary": {
+            "users_evaluated": 883,
+            "map_at_12": 0.030283471273703438,
+            "hit_rate": 0.1404303510758777,
+            "recall_at_12": 0.06444658349542136
+          },
+          "context_lambdarank": {
+            "users_evaluated": 883,
+            "map_at_12": 0.027349053074562698,
+            "hit_rate": 0.1392978482446206,
+            "recall_at_12": 0.0650482745754718
+          },
+          "v1": {
+            "users_evaluated": 883,
+            "map_at_12": 0.028576534435113144,
+            "hit_rate": 0.12004530011325028,
+            "recall_at_12": 0.05613516630034341
+          },
+          "repeat": {
+            "users_evaluated": 883,
+            "map_at_12": 0.025383093663812802,
+            "hit_rate": 0.10532276330690826,
+            "recall_at_12": 0.047146869458139444
+          }
+        },
+        "paired_vs_previous_expanded": {
+          "loss_selection": {
+            "mean_delta": 7.386553158542592e-05,
+            "lower_95": -0.0005400458945546714,
+            "upper_95": 0.0007486717389156987,
+            "paired_customers": 883,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          },
+          "context_binary": {
+            "mean_delta": -0.0010684848656050724,
+            "lower_95": -0.0063173081930817335,
+            "upper_95": 0.003733307400814175,
+            "paired_customers": 883,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          },
+          "context_lambdarank": {
+            "mean_delta": -0.00400290306474581,
+            "lower_95": -0.009132366382583783,
+            "upper_95": 0.0009314501991354431,
+            "paired_customers": 883,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          }
+        },
+        "models": {
+          "previous_expanded": {
+            "selected_rounds": 21
+          },
+          "loss_selection": {
+            "selected_rounds": 33,
+            "features": 24,
+            "objective": "binary",
+            "selection_metric": "binary_logloss"
+          },
+          "context_binary": {
+            "selected_rounds": 53,
+            "features": 45,
+            "objective": "binary",
+            "selection_metric": "binary_logloss"
+          },
+          "context_lambdarank": {
+            "selected_rounds": 32,
+            "features": 45,
+            "objective": "lambdarank",
+            "selection_metric": "full_truth_map12"
+          }
+        },
+        "paired_vs_v1": {
+          "loss_selection": {
+            "mean_delta": 0.0028492872357807914,
+            "lower_95": -0.0013097077781679105,
+            "upper_95": 0.007207231773361846,
+            "paired_customers": 883,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          },
+          "context_binary": {
+            "mean_delta": 0.0017069368385902927,
+            "lower_95": -0.0024714971466811785,
+            "upper_95": 0.006076903475650644,
+            "paired_customers": 883,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          },
+          "context_lambdarank": {
+            "mean_delta": -0.0012274813605504431,
+            "lower_95": -0.005628506591558687,
+            "upper_95": 0.003381751693579267,
+            "paired_customers": 883,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          }
+        }
+      },
+      {
+        "holdout_end": "2020-09-08",
+        "retrieval": {
+          "users": 915,
+          "truth_pairs": 3267,
+          "sources": {
+            "base": {
+              "reachable_pairs": 449,
+              "additional_pairs_over_base": 0,
+              "micro_recall": 0.1374349556167738,
+              "macro_recall": 0.1736011010528525,
+              "users_with_reachable_truth": 319,
+              "oracle_map_at_12": 0.174658883921179,
+              "candidates_min_median_max": [
+                76,
+                104.0,
+                174
+              ]
+            },
+            "family": {
+              "reachable_pairs": 58,
+              "additional_pairs_over_base": 11,
+              "micro_recall": 0.01775329048056321,
+              "macro_recall": 0.0255814434502959,
+              "users_with_reachable_truth": 50,
+              "oracle_map_at_12": 0.02567004944054124,
+              "candidates_min_median_max": [
+                0,
+                4.0,
+                50
+              ]
+            },
+            "recent_basket": {
+              "reachable_pairs": 192,
+              "additional_pairs_over_base": 33,
+              "micro_recall": 0.05876951331496786,
+              "macro_recall": 0.07308286716676306,
+              "users_with_reachable_truth": 145,
+              "oracle_map_at_12": 0.07354844305663981,
+              "candidates_min_median_max": [
+                0,
+                50.0,
+                50
+              ]
+            },
+            "latent": {
+              "reachable_pairs": 210,
+              "additional_pairs_over_base": 77,
+              "micro_recall": 0.0642791551882461,
+              "macro_recall": 0.07942949334085977,
+              "users_with_reachable_truth": 162,
+              "oracle_map_at_12": 0.08000796410632477,
+              "candidates_min_median_max": [
+                50,
+                50.0,
+                50
+              ]
+            },
+            "union": {
+              "reachable_pairs": 559,
+              "additional_pairs_over_base": 110,
+              "micro_recall": 0.17110498928680748,
+              "macro_recall": 0.20946711904624463,
+              "users_with_reachable_truth": 371,
+              "oracle_map_at_12": 0.2109257682208502,
+              "candidates_min_median_max": [
+                104,
+                158.0,
+                255
+              ]
+            }
+          },
+          "holdout_end": "2020-09-08",
+          "cutoff": "2020-09-02",
+          "channel_fit_seconds": 46.36593449200154,
+          "candidate_seconds_p50_p95": [
+            0.008033072008402087,
+            0.009495722799329087
+          ]
+        },
+        "metrics": {
+          "previous_expanded": {
+            "users_evaluated": 915,
+            "map_at_12": 0.030756946908586255,
+            "hit_rate": 0.14098360655737704,
+            "recall_at_12": 0.0752111751243863
+          },
+          "loss_selection": {
+            "users_evaluated": 915,
+            "map_at_12": 0.03355849675521807,
+            "hit_rate": 0.14426229508196722,
+            "recall_at_12": 0.07439507454936577
+          },
+          "context_binary": {
+            "users_evaluated": 915,
+            "map_at_12": 0.03515915661953913,
+            "hit_rate": 0.15081967213114755,
+            "recall_at_12": 0.08099742180745073
+          },
+          "context_lambdarank": {
+            "users_evaluated": 915,
+            "map_at_12": 0.03169129691397451,
+            "hit_rate": 0.13989071038251366,
+            "recall_at_12": 0.0710772205757741
+          },
+          "v1": {
+            "users_evaluated": 915,
+            "map_at_12": 0.030523774040167484,
+            "hit_rate": 0.11912568306010929,
+            "recall_at_12": 0.06312836525951279
+          },
+          "repeat": {
+            "users_evaluated": 915,
+            "map_at_12": 0.0243398097551103,
+            "hit_rate": 0.10601092896174863,
+            "recall_at_12": 0.055908046558962664
+          }
+        },
+        "paired_vs_previous_expanded": {
+          "loss_selection": {
+            "mean_delta": 0.0028015498466318137,
+            "lower_95": -0.0010550511950102115,
+            "upper_95": 0.007091211391826145,
+            "paired_customers": 915,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          },
+          "context_binary": {
+            "mean_delta": 0.00440220971095288,
+            "lower_95": -0.0016494504635215018,
+            "upper_95": 0.01038548096434025,
+            "paired_customers": 915,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          },
+          "context_lambdarank": {
+            "mean_delta": 0.0009343500053882565,
+            "lower_95": -0.004919202859981549,
+            "upper_95": 0.0067645242924956024,
+            "paired_customers": 915,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          }
+        },
+        "models": {
+          "previous_expanded": {
+            "selected_rounds": 6
+          },
+          "loss_selection": {
+            "selected_rounds": 35,
+            "features": 24,
+            "objective": "binary",
+            "selection_metric": "binary_logloss"
+          },
+          "context_binary": {
+            "selected_rounds": 47,
+            "features": 45,
+            "objective": "binary",
+            "selection_metric": "binary_logloss"
+          },
+          "context_lambdarank": {
+            "selected_rounds": 23,
+            "features": 45,
+            "objective": "lambdarank",
+            "selection_metric": "full_truth_map12"
+          }
+        },
+        "paired_vs_v1": {
+          "loss_selection": {
+            "mean_delta": 0.003034722715050584,
+            "lower_95": -0.001362650854761511,
+            "upper_95": 0.007734953572282801,
+            "paired_customers": 915,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          },
+          "context_binary": {
+            "mean_delta": 0.004635382579371649,
+            "lower_95": -0.00016151350546842367,
+            "upper_95": 0.009200022883663592,
+            "paired_customers": 915,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          },
+          "context_lambdarank": {
+            "mean_delta": 0.0011675228738070272,
+            "lower_95": -0.003967816615938201,
+            "upper_95": 0.006266605753081161,
+            "paired_customers": 915,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          }
+        }
+      }
+    ],
+    "retained_serving_hashes_unchanged": true
+  },
+  "customer_disjoint_check": {
+    "scope": "Frozen single challenger. Independent confirmation only if the caller reserved this cohort before outcome inspection; fixed historical catalog/time scope.",
+    "holdout_end": "2020-09-15",
+    "prepared_users": 20000,
+    "retrieval": {
+      "users": 2882,
+      "truth_pairs": 9445,
+      "sources": {
+        "base": {
+          "reachable_pairs": 1508,
+          "additional_pairs_over_base": 0,
+          "micro_recall": 0.15966119640021176,
+          "macro_recall": 0.1883292626084652,
+          "users_with_reachable_truth": 1034,
+          "oracle_map_at_12": 0.18902437681063622,
+          "candidates_min_median_max": [
+            87,
+            105.0,
+            189
+          ]
+        },
+        "family": {
+          "reachable_pairs": 237,
+          "additional_pairs_over_base": 66,
+          "micro_recall": 0.0250926416093171,
+          "macro_recall": 0.03250911942495822,
+          "users_with_reachable_truth": 198,
+          "oracle_map_at_12": 0.032593256847247135,
+          "candidates_min_median_max": [
+            0,
+            7.0,
+            50
+          ]
+        },
+        "recent_basket": {
+          "reachable_pairs": 606,
+          "additional_pairs_over_base": 125,
+          "micro_recall": 0.06416093170989942,
+          "macro_recall": 0.07085109740532837,
+          "users_with_reachable_truth": 471,
+          "oracle_map_at_12": 0.07107056237000718,
+          "candidates_min_median_max": [
+            2,
+            50.0,
+            50
+          ]
+        },
+        "latent": {
+          "reachable_pairs": 633,
+          "additional_pairs_over_base": 254,
+          "micro_recall": 0.06701958708311276,
+          "macro_recall": 0.06930577158366255,
+          "users_with_reachable_truth": 490,
+          "oracle_map_at_12": 0.06952976278097718,
+          "candidates_min_median_max": [
+            50,
+            50.0,
+            50
+          ]
+        },
+        "union": {
+          "reachable_pairs": 1886,
+          "additional_pairs_over_base": 378,
+          "micro_recall": 0.19968237162519853,
+          "macro_recall": 0.22640038649759497,
+          "users_with_reachable_truth": 1202,
+          "oracle_map_at_12": 0.2273255630559587,
+          "candidates_min_median_max": [
+            111,
+            158.0,
+            262
+          ]
+        }
+      },
+      "holdout_end": "2020-09-15",
+      "cutoff": "2020-09-09",
+      "channel_fit_seconds": 50.885060758999316,
+      "candidate_seconds_p50_p95": [
+        0.008261280003353022,
+        0.00933012794557726
+      ]
+    },
+    "model": {
+      "selected_rounds": 63,
+      "features": 24,
+      "objective": "binary",
+      "selection_metric": "binary_logloss"
+    },
+    "metrics": {
+      "v1": {
+        "users_evaluated": 2882,
+        "map_at_12": 0.042483853721182706,
+        "hit_rate": 0.16585704371963914,
+        "recall_at_12": 0.08891672952728157
+      },
+      "challenger": {
+        "users_evaluated": 2882,
+        "map_at_12": 0.044104098023840015,
+        "hit_rate": 0.17938931297709923,
+        "recall_at_12": 0.0968134691317095
+      },
+      "repeat": {
+        "users_evaluated": 2882,
+        "map_at_12": 0.03919856191728403,
+        "hit_rate": 0.13809854267869534,
+        "recall_at_12": 0.07168992453619143
+      }
+    },
+    "paired_vs_v1": {
+      "mean_delta": 0.0016202443026573097,
+      "lower_95": -0.0008121043943753564,
+      "upper_95": 0.0038398089817243126,
+      "paired_customers": 2882,
+      "bootstrap_resamples": 2000,
+      "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+    },
+    "relative_map_gain": 0.03813788441347188,
+    "practical_gate_passed": false,
+    "positive_paired_interval": false,
+    "material_slice_warnings": [],
+    "slices": {
+      "activity:older": {
+        "users": 1814,
+        "v1": {
+          "users_evaluated": 1814,
+          "map_at_12": 0.016041612592939573,
+          "hit_rate": 0.09592061742006615,
+          "recall_at_12": 0.0429702961440878
+        },
+        "challenger": {
+          "users_evaluated": 1814,
+          "map_at_12": 0.01787054341103207,
+          "hit_rate": 0.1113561190738699,
+          "recall_at_12": 0.05069011519535224
+        },
+        "relative_map_gain": 0.11401165609107577
+      },
+      "activity:within7days": {
+        "users": 1068,
+        "v1": {
+          "users_evaluated": 1068,
+          "map_at_12": 0.08739604979480915,
+          "hit_rate": 0.2846441947565543,
+          "recall_at_12": 0.1669568326706463
+        },
+        "challenger": {
+          "users_evaluated": 1068,
+          "map_at_12": 0.08866183966020108,
+          "hit_rate": 0.2949438202247191,
+          "recall_at_12": 0.17515407216593426
+        },
+        "relative_map_gain": 0.014483376175053575
+      },
+      "history:10+": {
+        "users": 1477,
+        "v1": {
+          "users_evaluated": 1477,
+          "map_at_12": 0.04273465478085122,
+          "hit_rate": 0.18348002708192282,
+          "recall_at_12": 0.09203552992626182
+        },
+        "challenger": {
+          "users_evaluated": 1477,
+          "map_at_12": 0.042854583369563055,
+          "hit_rate": 0.1983750846310088,
+          "recall_at_12": 0.09930710304519969
+        },
+        "relative_map_gain": 0.00280635445230204
+      },
+      "history:5-9": {
+        "users": 1405,
+        "v1": {
+          "users_evaluated": 1405,
+          "map_at_12": 0.04222020022286926,
+          "hit_rate": 0.14733096085409253,
+          "recall_at_12": 0.08563810448152084
+        },
+        "challenger": {
+          "users_evaluated": 1405,
+          "map_at_12": 0.04541764474580946,
+          "hit_rate": 0.1594306049822064,
+          "recall_at_12": 0.09419204757283048
+        },
+        "relative_map_gain": 0.07573257601957706
+      },
+      "section:Baby/Children": {
+        "users": 8,
+        "v1": {
+          "users_evaluated": 8,
+          "map_at_12": 0.03125,
+          "hit_rate": 0.125,
+          "recall_at_12": 0.03125
+        },
+        "challenger": {
+          "users_evaluated": 8,
+          "map_at_12": 0.036931818181818184,
+          "hit_rate": 0.125,
+          "recall_at_12": 0.0625
+        },
+        "relative_map_gain": 0.18181818181818188
+      },
+      "section:Divided": {
+        "users": 466,
+        "v1": {
+          "users_evaluated": 466,
+          "map_at_12": 0.0554133197910022,
+          "hit_rate": 0.18025751072961374,
+          "recall_at_12": 0.09658901253806418
+        },
+        "challenger": {
+          "users_evaluated": 466,
+          "map_at_12": 0.06033693995220665,
+          "hit_rate": 0.19742489270386265,
+          "recall_at_12": 0.11076952077488558
+        },
+        "relative_map_gain": 0.08885264733776044
+      },
+      "section:Ladieswear": {
+        "users": 2249,
+        "v1": {
+          "users_evaluated": 2249,
+          "map_at_12": 0.03883443209465092,
+          "hit_rate": 0.16140506891951978,
+          "recall_at_12": 0.08582281392223066
+        },
+        "challenger": {
+          "users_evaluated": 2249,
+          "map_at_12": 0.039691027062517564,
+          "hit_rate": 0.17518897287683416,
+          "recall_at_12": 0.09299473556783651
+        },
+        "relative_map_gain": 0.022057615411469556
+      },
+      "section:Menswear": {
+        "users": 80,
+        "v1": {
+          "users_evaluated": 80,
+          "map_at_12": 0.058515625,
+          "hit_rate": 0.15,
+          "recall_at_12": 0.09303921568627452
+        },
+        "challenger": {
+          "users_evaluated": 80,
+          "map_at_12": 0.05491815476190476,
+          "hit_rate": 0.1625,
+          "recall_at_12": 0.0985749299719888
+        },
+        "relative_map_gain": -0.0614787971263272
+      },
+      "section:Sport": {
+        "users": 79,
+        "v1": {
+          "users_evaluated": 79,
+          "map_at_12": 0.055012298999640774,
+          "hit_rate": 0.22784810126582278,
+          "recall_at_12": 0.13340365682137836
+        },
+        "challenger": {
+          "users_evaluated": 79,
+          "map_at_12": 0.06375911008822402,
+          "hit_rate": 0.21518987341772153,
+          "recall_at_12": 0.1248945147679325
+        },
+        "relative_map_gain": 0.15899737418064208
+      }
+    },
+    "serving_status": "Not deployed; integration and operational validation are separate.",
+    "cohort_summary": {
+      "eligible_past_shoppers": 185168,
+      "sampled_past_eligible_shoppers": 20000,
+      "old_sample_overlap": 0,
+      "cohort_hash": "f2652099cad6a410f632cc2549e417535cb102173f9f4abe4a3f3e8d3a7b2f74"
+    },
+    "frozen_protocol": {
+      "selected_design": "loss_selection: existing24 features and unchanged family/basket/SVD pools; binary loss early stopping, no contextual features",
+      "selection_reason": "Simplest arm with positive incremental MAP on both previously inspected development weeks and roughly10% MAP gain over serving v1 on each. Rich-context arms were inconsistent.",
+      "target_end": "2020-09-15",
+      "cutoff": "2020-09-09",
+      "training_window_ends": [
+        "2020-08-25",
+        "2020-09-01",
+        "2020-09-08"
+      ],
+      "cohort": "20000 shoppers drawn uniformly without replacement from sorted crowd shopper_ids with at least5 catalog purchase events strictly before2020-09-09, excluding all5000 existing sampled shoppers via verified crosswalk; seed20261028; eligibility does not read target activity",
+      "new_user_ids": "Enumerate sampled shopper_ids from1; age=None, unused by both models; preserve shopper_id crosswalk privately",
+      "scope": "Previously unused customer outcomes in an already-inspected calendar period and fixed14300-product catalog. Not a new calendar period or original full-assortment population. Warm historical users, not cold-start.",
+      "arms": [
+        "freshly fitted v1 on same3 prior cohort windows",
+        "single frozen loss_selection challenger"
+      ],
+      "tree_params": "binary/24features/31leaves/depth6/minleaf50/lr.05/L2=1/seed42/two threads;400-round cap and patience30 on third-prior-week binary logloss, then refit all3 earlier weeks",
+      "scoring": "All sampled customers with prior and target purchases; full unique catalog truth, including unreachable items, repeat purchases and empty predictions; MAP12/hit/macro recall",
+      "promotion_gates": {
+        "relative_MAP_vs_v1_min": 0.05,
+        "hit_and_macro_recall_no_decrease": true,
+        "paired_MAP95_lower_positive_for_established_gain": true,
+        "material_slice_warning": "dominant historical section, history size5-9/10+, last_purchase<=7/>7days; flag relative MAP losses>10% for slices n>=50; flagged slices require review before promotion"
+      },
+      "constraints": "No changes after outcome inspection, no alternate models or retrials on this cohort, no serving writes or automatic deployment",
+      "source_sha256": {
+        "scripts/compare_rankers.py": "7e2641afb5f242bb13ad5e4c05fe038fabb863f56d23d150020818156debad53",
+        "scripts/retrieval_channels.py": "ba53e814a10b0ecd6a21a80ce86cb09c7a14a2cbb08dd090c712da0bfd0559fc",
+        "scripts/ranking_features.py": "ccc5773cb9212b0ae5ea67e2207d22fd198649a7ca09472953fcd76eff21cbed"
+      }
+    },
+    "inputs_and_retained_serving_hashes_unchanged": true
+  },
+  "confirmation_input_sha256": {
+    "products.parquet": "00bb97539e3d4f9c301a198966a4c8742ac20f27add17ad3ddfc39cdd4767e37",
+    "purchases.parquet": "e16cf514b7b65b7524e866a553706a060706e99c3867308d79463691ca122478",
+    "shopper_purchases.parquet": "9561f59433dfce521276ef48cecf166de17857711a3a6046a1f03d6893ae5ae7",
+    "users.parquet": "146fee72ee465179d4733b977205f4e983aee3e8e752f774eef1bdb5da6671f8"
+  },
+  "local_model_sha256": {
+    "models/2020-09-01-loss_selection.txt": "ca8590cf31c7b41792e842d6052bd5a753922e6638eb49f3eb7aa25cfcec23b5",
+    "models/2020-09-01-context_lambdarank.txt": "bb462fb005d939853441915c5fd02572fed962330047c73d393b3542cf00d26b",
+    "models/2020-09-08-context_lambdarank.txt": "d3d8cfcd7073f4dfb58f49ec07a7bf8ea7481a95fb6996f9f5d25ea207fe0a35",
+    "models/2020-09-01-context_binary.txt": "1670a5d7ecd5e5b74fe131b54afa2b548c1013ccdda33a746e89b7bbb242ef7e",
+    "models/2020-09-08-loss_selection.txt": "2db39ead2b25676ed34e1de5d07c139d5f487e1701998bb9260e462df768ddaf",
+    "models/2020-09-08-context_binary.txt": "56795a6809176a6f1002da259361e7a14989c9973ddecb19ea8cf4dd510886c9",
+    "confirmation/model.txt": "0231bd2ade49189ccaf40e05f880143b0df96417f1c5923a87b6edb85ebe5aa0"
+  }
+}

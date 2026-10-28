@@ -1,3 +1,30 @@
+# Ranking follow-up — 2026-10-28
+
+Past-only context features are delivered (`954ce91`); serving does not use them.
+A fixed three-arm comparison held candidate pools/truth constant. Binary loss
+selection gave MAP .031426/.033558 versus the previous expanded .031352/.030757
+and v1 .028577/.030524. Context binary .030283/.035159 and LambdaRank .027349/.031691
+were inconsistent; no per-week winner switching.
+
+Before selecting new target outcomes, froze the simpler 24-feature loss-selection
+model/rules and sampled 20,000 past-eligible crowd shoppers excluding all original
+5,000. On Sep9–15, 2,882 active buyers: v1 MAP .042484/hit16.59%/recall8.89%;
+challenger .044104/17.94%/9.68%. MAP +3.81% failed the5% practical gate and paired
+interval [−.000812,+.003840] includes zero. No major declared slice warning; no
+promotion. This is customer-disjoint labels in a shared historical calendar/catalog,
+not a new-time or completely independent dataset. All20,000 reserved memberships
+are now inspected: never reuse them as fresh, nor sample future validation without
+excluding them and the original cohort. Private reservation/crosswalk is at
+`data/experiments/confirmation-20261028`.
+
+See [the follow-up record](recommendation-ranking-followup.md) and aggregate JSON
+for every arm, all slices, sampling/frozen rules and reproduction. Serving data,
+model/index/provider/configuration unchanged. 446 offline tests pass, one integration
+test deselected, Ruff/format pass. Only the same two visible teammates were used;
+all implementation/review tasks settled with their conversations retained.
+
+---
+
 # Complementary retrieval implementation — 2026-10-28
 
 Parquet shard preparation is delivered (`05a463b`). An isolated enriched bundle
