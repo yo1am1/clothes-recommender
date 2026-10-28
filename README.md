@@ -134,6 +134,18 @@ Prepare experimental inputs separately from the running app:
 uv run python -m scripts.prepare_data --archive data/raw/csvs --data-dir data/experiments/enriched
 ```
 
+The same preparation accepts local Hugging Face Parquet shards arranged as
+`{articles,customers,transactions}/*.parquet`, streaming transaction batches rather
+than converting the full history to CSV:
+
+```sh
+uv run python -m scripts.prepare_data --archive data/raw/hf --data-dir data/experiments/enriched
+```
+
+Shards are read in sorted filename order. A root CSV and shards for the same table
+are rejected as ambiguous; malformed shards fail preparation rather than being skipped.
+Raw source files and prepared outputs remain local and ignored by Git.
+
 This command retains the existing full-window sampling rule; it does not create a
 new untouched evaluation set. New historical price features must use event prices
 before each cutoff, rather than the displayed full-window product median. Existing

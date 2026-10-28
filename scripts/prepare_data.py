@@ -6,8 +6,9 @@ Download the archive once (needs a Kaggle account and accepted competition rules
 Then:
     uv run python -m scripts.prepare_data
 
-`--archive` also accepts a directory holding the unzipped CSVs, such as the files of the
-Hugging Face mirror that scripts/fetch_photos.py downloads photos from. Without an
+`--archive` also accepts unzipped CSVs or a Hugging Face shard directory containing
+{articles,customers,transactions}/*.parquet. Shards are read in sorted filename order;
+a CSV and Parquet shards for the same table are rejected as ambiguous. Without an
 `images/` folder next to the CSVs, photos are not checked or extracted here: run
 `scripts.fetch_photos` afterwards.
 
@@ -25,7 +26,7 @@ import argparse
 import json
 import logging
 import zipfile
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from datetime import date, timedelta
 from pathlib import Path
 from typing import IO
@@ -35,7 +36,7 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.compute as pc
 from PIL import Image
-from pyarrow import csv
+from pyarrow import csv, parquet
 from scipy.sparse import csr_array, triu
 from tqdm import tqdm
 
@@ -63,7 +64,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=Path,
         default=Path("data/raw/h-and-m-personalized-fashion-recommendations.zip"),
         help="Kaggle competition zip (the download command above writes it here), "
-        "or a directory with the unzipped CSVs.",
+        "or a directory with unzipped CSVs or {articles,customers,transactions}/*.parquet.",
     )
     parser.add_argument(
         "--data-dir", type=Path, help="Output directory; defaults to configured data_dir."
@@ -75,7 +76,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 
 class RawSource:
-    """The Kaggle zip, or a directory with the same layout (CSVs plus optional images/)."""
+    """Kaggle zip, CSV directory, or local Parquet shards, plus optional images/."""
 
     def __init__(self, path: Path) -> None:
         self._dir = path if path.is_dir() else None
@@ -102,13 +103,57 @@ class RawSource:
             return {name for name in names if (self._dir / name).is_file()}
         return set(names) & set(self._zip.namelist())
 
+    def parquet_files(self, member: str) -> list[Path]:
+        if self._dir is None:
+            return []
+        name = "transactions" if member == "transactions_train.csv" else Path(member).stem
+        files = sorted((self._dir / name).glob("*.parquet"))
+        if files and (self._dir / member).exists():
+            raise ValueError(f"Ambiguous source: both {member} and {name}/*.parquet")
+        return files
+
+    def batches(self, member: str, schema: pa.Schema) -> Iterator[pa.RecordBatch]:
+        files = self.parquet_files(member)
+        if files:
+            for path in files:
+                with parquet.ParquetFile(path) as source:
+                    missing = set(schema.names) - set(source.schema_arrow.names)
+                    if missing:
+                        raise ValueError(f"{path}: missing required columns {sorted(missing)}")
+                    for batch in source.iter_batches(batch_size=65536, columns=schema.names):
+                        yield batch.cast(schema)
+        else:
+            options = csv.ConvertOptions(
+                include_columns=schema.names,
+                strings_can_be_null=True,
+                column_types={field.name: field.type for field in schema},
+            )
+            with self.open(member) as raw:
+                yield from csv.open_csv(raw, convert_options=options)
+
+    def read_metadata(
+        self, member: str, *, dtype: dict[str, type | str], usecols: list[str] | None = None
+    ) -> pd.DataFrame:
+        files = self.parquet_files(member)
+        if not files:
+            with self.open(member) as raw:
+                return pd.read_csv(raw, dtype=dtype, usecols=usecols)
+        table = pa.concat_tables(
+            [parquet.read_table(path, columns=usecols) for path in files],
+            promote_options="default",
+        )
+        for name, target in dtype.items():
+            arrow_type = pa.string() if target is str else pa.from_numpy_dtype(target)
+            table = table.set_column(
+                table.schema.get_field_index(name), name, table[name].cast(arrow_type)
+            )
+        return table.to_pandas()
+
 
 def read_recent_transactions(archive: RawSource, since: date) -> pd.DataFrame:
     """Stream the 31M-row transactions file and keep rows from `since` onwards."""
-    options = csv.ConvertOptions(
-        include_columns=["t_dat", "customer_id", "article_id", "price", "sales_channel_id"],
-        strings_can_be_null=True,
-        column_types={
+    schema = pa.schema(
+        {
             "t_dat": pa.date32(),
             "customer_id": pa.string(),
             "article_id": pa.int64(),
@@ -117,11 +162,13 @@ def read_recent_transactions(archive: RawSource, since: date) -> pd.DataFrame:
         },
     )
     batches = []
-    with archive.open("transactions_train.csv") as raw:
-        reader = csv.open_csv(raw, convert_options=options)
-        for batch in reader:
-            batches.append(batch.filter(pc.greater_equal(batch["t_dat"], pa.scalar(since))))
-        table = pa.Table.from_batches(batches, schema=reader.schema)
+    for batch in archive.batches("transactions_train.csv", schema):
+        if batch["t_dat"].null_count:
+            raise ValueError("Transactions must have a valid purchase date")
+        recent = batch.filter(pc.greater_equal(batch["t_dat"], pa.scalar(since)))
+        if recent.num_rows:
+            batches.append(recent)
+    table = pa.Table.from_batches(batches, schema=schema)
     return table.to_pandas().astype({"customer_id": "category"})
 
 
@@ -218,8 +265,7 @@ def prepare(archive_path: Path, data_dir: Path, weeks: int, customer_count: int,
         customer_ids = [c for c in customer_ids if c in customers_with_photos]
         user_id_of = {customer_id: user_id for user_id, customer_id in enumerate(customer_ids, 1)}
 
-        with archive.open("articles.csv") as raw:
-            articles = pd.read_csv(raw, dtype={"article_id": "int64"})
+        articles = archive.read_metadata("articles.csv", dtype={"article_id": "int64"})
         articles = articles[articles["article_id"].isin(article_ids)]
         if articles["article_id"].duplicated().any() or set(articles["article_id"]) != set(
             article_ids
@@ -260,8 +306,9 @@ def prepare(archive_path: Path, data_dir: Path, weeks: int, customer_count: int,
             ]
         ]
 
-        with archive.open("customers.csv") as raw:
-            customers = pd.read_csv(raw, usecols=["customer_id", "age"], dtype={"customer_id": str})
+        customers = archive.read_metadata(
+            "customers.csv", usecols=["customer_id", "age"], dtype={"customer_id": str}
+        )
         customers = customers[customers["customer_id"].isin(user_id_of)]
         if customers["customer_id"].duplicated().any() or set(customers["customer_id"]) != set(
             user_id_of

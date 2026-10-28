@@ -1,14 +1,25 @@
 import io
 import json
 import zipfile
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
+import pyarrow as pa
 import pytest
 from PIL import Image
+from pyarrow import parquet
 
 from scripts import shopify_enrichment
-from scripts.prepare_data import HM_PRICE_SCALE, PHOTO_MAX_SIZE, co_purchases, photo_member, prepare
+from scripts.prepare_data import (
+    HM_PRICE_SCALE,
+    PHOTO_MAX_SIZE,
+    RawSource,
+    co_purchases,
+    photo_member,
+    prepare,
+    read_recent_transactions,
+)
 
 ARTICLES = pd.DataFrame(
     {
@@ -409,3 +420,185 @@ def test_enriched_preparation_remains_compatible_with_serving(data_dir: Path) ->
     assert "price_normalized" not in customers.purchases_for(1)[0].model_dump()
     assert "product_code" not in catalog.get(108775015).model_dump()
     assert collaborative.recommend(2, 2)
+
+
+@pytest.fixture
+def parquet_factory(tmp_path: Path):
+    def build(*, articles=ARTICLES, customers=CUSTOMERS, transactions=None):
+        raw = tmp_path / "hf"
+        frames = {
+            "articles": articles,
+            "customers": customers,
+            "transactions": _transactions() if transactions is None else transactions,
+        }
+        for name, frame in frames.items():
+            directory = raw / name
+            directory.mkdir(parents=True, exist_ok=True)
+            pivot = max(1, len(frame) // 2)
+            parts = [frame.iloc[:pivot], frame.iloc[pivot:]]
+            # Creation order must not decide event order or shopper identities.
+            for i in [1, 0]:
+                parts[i].to_parquet(directory / f"part-{i}.parquet", index=False)
+        return raw
+
+    return build
+
+
+@pytest.mark.parametrize(
+    "customer_count,prices",
+    [(1, {0.0152, 0.0169}), (10, {0.0508, 0.0305, 0.0152, 0.0169})],
+)
+def test_parquet_shards_match_csv_outputs_including_enriched_fields(
+    parquet_factory, archive_factory, tmp_path, customer_count, prices
+) -> None:
+    ids = {key: f"000{i}" for i, key in enumerate("abcd", 1)}
+    transactions = _transactions()
+    transactions["customer_id"] = transactions["customer_id"].map(ids)
+    transactions["sales_channel_id"] = [1 + i % 2 for i in range(len(transactions))]
+    customers = CUSTOMERS.assign(customer_id=CUSTOMERS["customer_id"].map(ids))
+    # The first article shard has an all-null description; it remains legitimate metadata.
+    articles = ARTICLES.iloc[[1, 0, 2]]
+    raw = parquet_factory(articles=articles, customers=customers, transactions=transactions)
+    csv_source = archive_factory(
+        articles=articles, customers=customers, transactions=transactions, photos=[]
+    )
+    for source, name in [(raw, "parquet-output"), (csv_source, "csv-output")]:
+        prepare(source, tmp_path / name, weeks=1, customer_count=customer_count, seed=0)
+    for filename in [
+        "products.parquet",
+        "users.parquet",
+        "purchases.parquet",
+        "shopper_purchases.parquet",
+        "co_purchases.parquet",
+    ]:
+        pd.testing.assert_frame_equal(
+            pd.read_parquet(tmp_path / "csv-output" / filename),
+            pd.read_parquet(tmp_path / "parquet-output" / filename),
+        )
+    crowd = pd.read_parquet(tmp_path / "parquet-output/shopper_purchases.parquet")
+    assert crowd["shopper_id"].nunique() == 3  # old-only fourth customer was filtered
+    assert crowd["sales_channel_id"].dtype == "int8"
+    assert set(crowd["sales_channel_id"]) == {1, 2}
+    assert pd.to_datetime(crowd["purchase_date"]).min() >= pd.Timestamp("2020-09-16")
+    assert set(crowd["price_normalized"]) == prices
+
+
+def test_parquet_transactions_stream_batches_and_keep_only_recent_rows(
+    parquet_factory, monkeypatch
+) -> None:
+    old = _transactions().iloc[:1].assign(t_dat="2018-09-20")
+    recent = _transactions().iloc[:6]
+    raw = parquet_factory(transactions=pd.concat([old.loc[old.index.repeat(131080)], recent]))
+    sizes = []
+    original = parquet.ParquetFile.iter_batches
+
+    def batches(self, *args, **kwargs):
+        for batch in original(self, *args, **kwargs):
+            sizes.append(batch.num_rows)
+            yield batch
+
+    monkeypatch.setattr(parquet.ParquetFile, "iter_batches", batches)
+    with RawSource(raw) as source:
+        result = read_recent_transactions(source, date(2020, 9, 16))
+    assert len(sizes) >= 3 and max(sizes) <= 65536
+    assert len(result) == 6
+    assert result["sales_channel_id"].dtype == "int8"
+    assert result["article_id"].dtype == "int64"
+    assert result["price"].dtype == "float64"
+
+
+@pytest.mark.parametrize(
+    "table,column",
+    [
+        *(
+            ("transactions", column)
+            for column in ["t_dat", "customer_id", "article_id", "price", "sales_channel_id"]
+        ),
+        ("articles", "article_id"),
+        ("articles", "product_code"),
+        ("customers", "customer_id"),
+        ("customers", "age"),
+    ],
+)
+def test_parquet_rejects_missing_required_columns(parquet_factory, tmp_path, table, column) -> None:
+    frame = {"transactions": _transactions(), "articles": ARTICLES, "customers": CUSTOMERS}[table]
+    raw = parquet_factory(**{table: frame.drop(columns=column)})
+    with pytest.raises((ValueError, KeyError, pa.ArrowException), match=column):
+        prepare(raw, tmp_path / "output", weeks=1, customer_count=10, seed=0)
+    assert not (tmp_path / "output").exists()
+
+
+@pytest.mark.parametrize(
+    "column,value",
+    [
+        ("t_dat", "not-a-date"),
+        ("t_dat", None),
+        ("customer_id", None),
+        ("article_id", None),
+        ("article_id", 1.5),
+        ("price", None),
+        ("price", float("inf")),
+        ("price", 0),
+        ("sales_channel_id", None),
+        ("sales_channel_id", 3),
+        ("sales_channel_id", 128),
+        ("sales_channel_id", 1.5),
+    ],
+)
+def test_parquet_rejects_invalid_transactions(parquet_factory, tmp_path, column, value) -> None:
+    raw = parquet_factory(transactions=_transactions().assign(**{column: value}))
+    with pytest.raises((ValueError, pa.ArrowException)):
+        prepare(raw, tmp_path / "output", weeks=1, customer_count=10, seed=0)
+    assert not (tmp_path / "output").exists()
+
+
+@pytest.mark.parametrize("missing", [False, True])
+def test_parquet_checks_each_shards_transaction_schema(parquet_factory, tmp_path, missing) -> None:
+    raw = parquet_factory()
+    later = raw / "transactions/part-1.parquet"
+    frame = pd.read_parquet(later)
+    frame = (
+        frame.drop(columns="sales_channel_id") if missing else frame.assign(sales_channel_id=1.5)
+    )
+    frame.to_parquet(later, index=False)
+    with pytest.raises((ValueError, pa.ArrowException)):
+        prepare(raw, tmp_path / "output", weeks=1, customer_count=10, seed=0)
+    assert not (tmp_path / "output").exists()
+
+
+@pytest.mark.parametrize("empty", [False, True])
+def test_parquet_rejects_empty_retained_window(parquet_factory, tmp_path, empty) -> None:
+    transactions = _transactions().assign(t_dat="2018-09-20")
+    raw = parquet_factory(transactions=transactions.iloc[:0] if empty else transactions)
+    with pytest.raises(ValueError, match="No eligible customers"):
+        prepare(raw, tmp_path / "output", weeks=1, customer_count=10, seed=0)
+    assert not (tmp_path / "output").exists()
+
+
+def test_csv_rejects_null_purchase_date(archive_factory, tmp_path) -> None:
+    transactions = _transactions()
+    transactions.loc[0, "t_dat"] = None
+    archive = archive_factory(transactions=transactions)
+    with pytest.raises(ValueError, match="valid purchase date"):
+        prepare(archive, tmp_path / "output", weeks=1, customer_count=10, seed=0)
+    assert not (tmp_path / "output").exists()
+
+
+@pytest.mark.parametrize("table", ["articles", "customers"])
+@pytest.mark.parametrize("invalid", ["missing", "duplicate"])
+def test_parquet_rejects_inconsistent_metadata(parquet_factory, tmp_path, table, invalid) -> None:
+    frame = ARTICLES if table == "articles" else CUSTOMERS
+    frame = frame.iloc[1:] if invalid == "missing" else pd.concat([frame, frame.iloc[:1]])
+    raw = parquet_factory(**{table: frame})
+    with pytest.raises(ValueError, match="exactly one row"):
+        prepare(raw, tmp_path / "output", weeks=1, customer_count=10, seed=0)
+    assert not (tmp_path / "output").exists()
+
+
+@pytest.mark.parametrize("table", ["articles", "customers", "transactions_train"])
+def test_rejects_ambiguous_csv_and_parquet_table(parquet_factory, tmp_path, table) -> None:
+    raw = parquet_factory()
+    (raw / f"{table}.csv").write_text("do not silently select this source")
+    with pytest.raises(ValueError, match="Ambiguous source"):
+        prepare(raw, tmp_path / "output", weeks=1, customer_count=10, seed=0)
+    assert not (tmp_path / "output").exists()
