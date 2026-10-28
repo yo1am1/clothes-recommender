@@ -90,7 +90,9 @@ Reproduction of the selection core, using the source bundle's anonymous tables:
 ```python
 past = crowd[pd.to_datetime(crowd.purchase_date) < pd.Timestamp("2020-09-09")]
 counts = past.groupby("shopper_id").size()
-eligible = np.sort(counts[(counts >= 5) & ~counts.index.isin(old_users.shopper_id)].index.to_numpy())
+eligible = np.sort(
+    counts[(counts >= 5) & ~counts.index.isin(old_users.shopper_id)].index.to_numpy()
+)
 chosen = np.sort(np.random.default_rng(20261028).choice(eligible, 20000, replace=False))
 ```
 

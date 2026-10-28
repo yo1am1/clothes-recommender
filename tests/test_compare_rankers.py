@@ -41,11 +41,12 @@ def test_enrichment_keeps_ids_original_features_and_normalizes_sources():
         experiment.enrich(original, context)
 
 
-@pytest.mark.parametrize("variant", experiment.VARIANTS)
+@pytest.mark.parametrize("variant", experiment.FITTING_VARIANTS)
 def test_fit_uses_prior_validation_groups_and_ignores_target_truth(monkeypatch, tmp_path, variant):
     calls = []
     ranking = variant == "context_lambdarank"
-    width = 24 if variant == "loss_selection" else 45
+    sampled = variant == "sampled_binary"
+    width = 24 if variant in ("loss_selection", "sampled_binary") else 45
 
     def dataset(data, label, **kwargs):
         if ranking:
@@ -60,6 +61,7 @@ def test_fit_uses_prior_validation_groups_and_ignores_target_truth(monkeypatch, 
             assert set(kwargs["valid_sets"][0].data[:, 0]) == {3}
             if ranking:
                 assert params["lambdarank_truncation_level"] == 15
+            if ranking or sampled:
                 assert kwargs["feval"](np.array([0.1, 0.9]), None) == (
                     "full_truth_map12",
                     0.5,
@@ -176,3 +178,97 @@ def test_confirmation_cli_refuses_multiple_target_weeks(tmp_path):
             ]
         )
     assert not list(tmp_path.iterdir())
+
+
+def test_sampled_training_reduces_only_negatives_and_keeps_full_validation(monkeypatch):
+    def large(marker):
+        values = np.zeros((102, 24))
+        values[:, 0] = marker
+        values[0, 1] = 1
+        return Window(
+            {
+                100: CandidateRows(list(range(1, 103)), values, 102),
+                999: CandidateRows([], np.empty((0, 24)), 0),
+            },
+            {100: {1, 99999}, 999: {1}},
+            {},
+        )
+
+    observed = []
+
+    def data(x, label, **kwargs):
+        return SimpleNamespace(x=x, y=label)
+
+    def train(params, dataset, num_boost_round, **kwargs):
+        observed.append((len(dataset.y), int(dataset.y.sum())))
+        if "valid_sets" in kwargs:
+            valid = kwargs["valid_sets"][0]
+            assert len(valid.y) == 102 and valid.y.sum() == 1
+            assert kwargs["feval"](valid.x[:, 1], None) == ("full_truth_map12", 0.25, True)
+        return SimpleNamespace(best_iteration=5, predict=lambda x: x[:, 1])
+
+    monkeypatch.setattr(
+        experiment,
+        "_lightgbm",
+        lambda: SimpleNamespace(Dataset=data, train=train, early_stopping=lambda *a, **k: None),
+    )
+    pred, meta = experiment.fit_predict([large(i) for i in [1, 2, 3]], large(4), "sampled_binary")
+    assert observed == [(62, 2), (93, 3)]
+    assert pred[999] == []
+    assert meta["negative_sampling"] == {
+        "initial": {"full_rows": 204, "sampled_rows": 62, "positives": 2},
+        "refit": {"full_rows": 306, "sampled_rows": 93, "positives": 3},
+    }
+
+
+@pytest.mark.parametrize("external", [False, True])
+def test_five_snapshots_keep_latest_validation_separate_from_initial_fit(monkeypatch, external):
+    history = [window(i, 24) for i in range(1, 6)]
+    history[-1].diagnostics = {"holdout_end": "2020-08-25"}
+    validation = window(50, 24) if external else history[-1]
+    validation.diagnostics = {"holdout_end": "2020-08-25"}
+    seen = []
+
+    def train(params, data, num_boost_round, **kwargs):
+        seen.append(set(data.x[:, 0]))
+        if "valid_sets" in kwargs:
+            assert set(kwargs["valid_sets"][0].x[:, 0]) == ({50} if external else {5})
+        return SimpleNamespace(best_iteration=7, predict=lambda x: x[:, 1])
+
+    monkeypatch.setattr(
+        experiment,
+        "_lightgbm",
+        lambda: SimpleNamespace(
+            Dataset=lambda x, label, **kw: SimpleNamespace(x=x, y=label),
+            train=train,
+            early_stopping=lambda *a, **kw: None,
+        ),
+    )
+    pred, meta = experiment.fit_predict(
+        history,
+        window(6, 24),
+        "loss_selection",
+        validation_window=validation if external else None,
+    )
+    assert seen == [{1, 2, 3, 4}, {1, 2, 3, 4, 5}]
+    assert pred == {100: [1, 2], 999: []}
+    assert meta["training_snapshots"] == 5
+    assert meta["external_validation"] is external
+
+
+def test_invalid_training_or_external_validation_is_rejected_before_dependency(monkeypatch):
+    def unexpected():
+        pytest.fail("Invalid windows must be rejected before dependency loading")
+
+    monkeypatch.setattr(experiment, "_lightgbm", unexpected)
+    with pytest.raises(ValueError, match="three earlier"):
+        experiment.fit_predict([window()] * 2, window(), "loss_selection")
+    history = [window()] * 3
+    validation = window()
+    for last, external in [(None, None), ("2020-08-25", "2020-09-01")]:
+        history[-1].diagnostics = {"holdout_end": last}
+        validation.diagnostics = {"holdout_end": external}
+        with pytest.raises(ValueError, match="last prior label week"):
+            experiment.fit_predict(
+                history, window(), "loss_selection", validation_window=validation
+            )

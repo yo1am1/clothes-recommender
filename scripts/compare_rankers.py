@@ -28,9 +28,11 @@ from scripts.compare_retrieval import (
 )
 from scripts.evaluate import chronological_split, paired_map_gain, ranking_metrics
 from scripts.fetch_photos import atomic_write
+from scripts.negative_sampling import negative_indices
 from scripts.ranking_features import FEATURE_NAMES, TemporalFeatures
 
 VARIANTS = ("loss_selection", "context_binary", "context_lambdarank")
+FITTING_VARIANTS = (*VARIANTS, "sampled_binary")
 
 
 def enrich(window: Window, context: TemporalFeatures) -> Window:
@@ -56,19 +58,41 @@ def groups(windows: list[Window]) -> list[int]:
 
 
 def fit_predict(
-    training: list[Window], target: Window, variant: str, *, model_path: Path | None = None
+    training: list[Window],
+    target: Window,
+    variant: str,
+    *,
+    model_path: Path | None = None,
+    validation_window: Window | None = None,
 ) -> tuple[dict, dict]:
-    if variant not in VARIANTS:
+    if variant not in FITTING_VARIANTS:
         raise ValueError("Unknown ranking variant")
+    if len(training) < 3:
+        raise ValueError("At least three earlier training windows are required")
+    validation = validation_window if validation_window is not None else training[-1]
+    if validation_window is not None:
+        last_date = training[-1].diagnostics.get("holdout_end")
+        if not last_date or validation.diagnostics.get("holdout_end") != last_date:
+            raise ValueError("External validation must match the last prior label week")
     lgb = _lightgbm()
-    x, y = arrays(training[:2], True)
-    vx, vy = arrays(training[2:], True)
+    x, y = arrays(training[:-1], True)
+    vx, vy = arrays([validation], True)
     if set(np.unique(y)) != {0, 1} or set(np.unique(vy)) != {0, 1}:
         raise ValueError("Training and earlier validation require both label classes")
     ranking = variant == "context_lambdarank"
+    sampled = variant == "sampled_binary"
+    sample_counts = {}
+    if sampled:
+        keep = negative_indices(y)
+        sample_counts["initial"] = {
+            "full_rows": len(y),
+            "sampled_rows": len(keep),
+            "positives": int(y.sum()),
+        }
+        x, y = x[keep], y[keep]
     params = {
         "objective": "lambdarank" if ranking else "binary",
-        "metric": "None" if ranking else "binary_logloss",
+        "metric": "None" if ranking or sampled else "binary_logloss",
         "learning_rate": 0.05,
         "num_leaves": 31,
         "max_depth": 6,
@@ -82,9 +106,8 @@ def fit_predict(
     }
     if ranking:
         params["lambdarank_truncation_level"] = 15
-    train_data = lgb.Dataset(x, label=y, **({"group": groups(training[:2])} if ranking else {}))
-    valid_data = lgb.Dataset(vx, label=vy, **({"group": groups(training[2:])} if ranking else {}))
-    validation = training[2]
+    train_data = lgb.Dataset(x, label=y, **({"group": groups(training[:-1])} if ranking else {}))
+    valid_data = lgb.Dataset(vx, label=vy, **({"group": groups([validation])} if ranking else {}))
 
     def metric(scores, _):
         pred = predictions(validation, scores, True)
@@ -99,12 +122,20 @@ def fit_predict(
         train_data,
         num_boost_round=400,
         valid_sets=[valid_data],
-        feval=metric if ranking else None,
+        feval=metric if ranking or sampled else None,
         callbacks=[lgb.early_stopping(30, first_metric_only=True, verbose=False)],
     )
     rounds = model.best_iteration
     del x, y, vx, vy, train_data, valid_data, model
     x, y = arrays(training, True)
+    if sampled:
+        keep = negative_indices(y)
+        sample_counts["refit"] = {
+            "full_rows": len(y),
+            "sampled_rows": len(keep),
+            "positives": int(y.sum()),
+        }
+        x, y = x[keep], y[keep]
     model = lgb.train(
         params,
         lgb.Dataset(x, label=y, **({"group": groups(training)} if ranking else {})),
@@ -119,7 +150,10 @@ def fit_predict(
         "selected_rounds": rounds,
         "features": x.shape[1],
         "objective": params["objective"],
-        "selection_metric": "full_truth_map12" if ranking else "binary_logloss",
+        "selection_metric": "full_truth_map12" if ranking or sampled else "binary_logloss",
+        "negative_sampling": sample_counts,
+        "training_snapshots": len(training),
+        "external_validation": validation_window is not None,
     }
 
 
