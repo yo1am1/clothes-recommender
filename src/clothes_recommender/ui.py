@@ -907,7 +907,7 @@ def close_assistant() -> None:
 
 
 def chat_conversation(context: str) -> None:
-    health = st.session_state.get("service_health") or call_api("GET", "/health")
+    health = call_api("GET", "/health")
     if health is None:
         return
     if not health.get("chat_enabled"):

@@ -898,3 +898,22 @@ def test_popup_provider_error_does_not_poison_history(mocked_api, request_bodies
     assert not app.exception
     assert json.loads(request_bodies["/chat"][-1])["history"] == []
     assert len(app.session_state["chat_history"]) == 2
+
+
+@pytest.mark.parametrize("available", [False, True])
+def test_popup_rechecks_availability_after_backend_configuration_changes(mocked_api, available):
+    _, overrides = mocked_api
+    overrides["/health"] = (
+        200,
+        {"json": {"status": "ok", "indexed_products": 2, "chat_enabled": available}},
+    )
+    app = AppTest.from_string("from clothes_recommender import ui; ui.assistant_popup()")
+    app.session_state["service_health"] = {
+        "status": "ok",
+        "indexed_products": 2,
+        "chat_enabled": not available,
+    }
+    app.session_state["assistant_popup"] = True
+    app.run()
+    assert not app.exception
+    assert bool(app.chat_input) is available
