@@ -329,6 +329,9 @@ reaches the holdout cutoff. On the 819-customer final week, observed MAP@12 is
 The paired bootstrap interval crosses zero, so this does not establish superiority
 from that week alone. Full evidence and the three earlier validations are in the
 [recommendation audit](docs/recommendation-audit.md).
+A [further BPR, sampling and training-scale iteration](docs/recommendation-iteration2.md)
+tested seven new designs. More supervision reached MAP .036754 on one development
+week but regressed on the other; no design passed both weeks or was promoted.
 A [ranking follow-up and customer-disjoint check](docs/recommendation-ranking-followup.md)
 raised observed scores again; the frozen challenger still failed its promotion gates.
 The [complementary retrieval experiment](docs/recommendation-retrieval.md) adds

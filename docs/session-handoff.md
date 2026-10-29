@@ -1,3 +1,40 @@
+# Latent and supervision-scale iteration — 2026-10-29
+
+Offline BPR and deterministic recalled-negative sampling helpers plus bounded
+comparison CLIs are delivered (`1426ac6`, `d698d2a`, `2a1c3a7`). The CLI dependency
+preflight bug was fixed separately (`0b3628d`). Seven new designs were evaluated
+on the same original Sep 1 / 8 buyers, pools and full truth. BPR/sampling were mixed
+or worse; expanding supervision to 25,000 profiles raised Sep 8 MAP .033558→.036754
+but lowered Sep 1 .031426→.027201. Five-week labels also failed consistency.
+No design passed the frozen >=5% MAP improvement on both weeks plus v1 hit/recall
+guards. No model promotion or new confirmation scoring occurred.
+
+The new 20,000-shopper reservation (seed 20261029, target Sep 9–15) remains **unscored**.
+Its digest is `75a63667f57ba62ec6d4e5a8b7b61eb3888100e334662853485ecd31c37d713e`.
+Keep this fixed reservation available for one subsequently frozen design; do not
+train on or resample it. When constructing another fresh customer cohort, exclude
+these reserved IDs, the original 5,000, the spent 20,000 and the added training IDs.
+Training-only bundle
+`data/experiments/ranker-training-20261028` preserves original users and adds 20,000
+selected strictly before Jul 22 (seed 20261030), excluding the 45,000 prior/reserved IDs.
+Its labels stop Sep 1; do not assume it contains Sep 8 labels for later model fitting.
+
+A machine restart erased the previous /tmp logs, optional libraries and caches.
+The same reservation was restored and hash-verified; the unchanged protocol was
+rerun with persistent ignored evidence under `data/experiments/iteration2-run`.
+No private memberships, predictions, models, caches or dependencies are committed.
+See [the iteration record](recommendation-iteration2.md), chart and aggregate JSON
+for all arms, actual training counts, uncertainty, source audit and reproduction.
+Serving datasets/model/index/provider/configuration remain unchanged; before/after
+serving file hashes match. Fresh v1/repeat and previous challenger controls match
+prior MAP to 1e-12. 526 offline tests pass, one integration test deselected;
+Ruff lint/format pass. The same two native teammates completed helper/research and
+independent review tasks before interruption; all tasks settled, conversations retained.
+No online/load or prospective utility check was performed. Next candidate intervention:
+distinct past-only retrieval, evaluated for incremental reach and final MAP.
+
+---
+
 # Ranking follow-up — 2026-10-28
 
 Past-only context features are delivered (`954ce91`); serving does not use them.

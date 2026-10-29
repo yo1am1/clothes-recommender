@@ -1,0 +1,954 @@
+{
+  "date": "2026-10-29",
+  "status": "unpromoted",
+  "bpr_sampling": {
+    "scope": "Inspected development weeks only; same full truth and candidate IDs; no promotion",
+    "bpr_features": [
+      "bpr_score",
+      "bpr_candidate_reciprocal_rank",
+      "bpr_known_vector"
+    ],
+    "results": [
+      {
+        "holdout_end": "2020-09-01",
+        "retrieval": {
+          "users": 3556,
+          "truth_pairs": 11363,
+          "sources": {
+            "base": {
+              "reachable_pairs": 1552,
+              "additional_pairs_over_base": 0,
+              "micro_recall": 0.13658364868432632,
+              "macro_recall": 0.1530621772252622,
+              "users_with_reachable_truth": 1099,
+              "oracle_map_at_12": 0.15385480426959597,
+              "candidates_min_median_max": [
+                84,
+                103.0,
+                191
+              ]
+            },
+            "family": {
+              "reachable_pairs": 194,
+              "additional_pairs_over_base": 56,
+              "micro_recall": 0.01707295608554079,
+              "macro_recall": 0.02034673007785213,
+              "users_with_reachable_truth": 161,
+              "oracle_map_at_12": 0.020431171752881554,
+              "candidates_min_median_max": [
+                0,
+                3.0,
+                50
+              ]
+            },
+            "recent_basket": {
+              "reachable_pairs": 568,
+              "additional_pairs_over_base": 101,
+              "micro_recall": 0.0499867992607586,
+              "macro_recall": 0.05425100112510872,
+              "users_with_reachable_truth": 431,
+              "oracle_map_at_12": 0.05460424386886703,
+              "candidates_min_median_max": [
+                0,
+                50.0,
+                50
+              ]
+            },
+            "latent": {
+              "reachable_pairs": 642,
+              "additional_pairs_over_base": 268,
+              "micro_recall": 0.05649916395318138,
+              "macro_recall": 0.05901377946392128,
+              "users_with_reachable_truth": 485,
+              "oracle_map_at_12": 0.05947081290163405,
+              "candidates_min_median_max": [
+                50,
+                50.0,
+                50
+              ]
+            },
+            "union": {
+              "reachable_pairs": 1933,
+              "additional_pairs_over_base": 381,
+              "micro_recall": 0.170113526357476,
+              "macro_recall": 0.1863722991682644,
+              "users_with_reachable_truth": 1281,
+              "oracle_map_at_12": 0.18748215523384262,
+              "candidates_min_median_max": [
+                102,
+                155.0,
+                263
+              ]
+            }
+          },
+          "holdout_end": "2020-09-01",
+          "cutoff": "2020-08-26",
+          "channel_fit_seconds": 42.018795427999976,
+          "candidate_seconds_p50_p95": [
+            0.007826160499462276,
+            0.00915141774953554
+          ]
+        },
+        "metrics": {
+          "previous_loss": {
+            "users_evaluated": 883,
+            "map_at_12": 0.03142582167089393,
+            "hit_rate": 0.14269535673839184,
+            "recall_at_12": 0.06493212098548887
+          },
+          "full_map": {
+            "users_evaluated": 883,
+            "map_at_12": 0.03135195613930851,
+            "hit_rate": 0.1404303510758777,
+            "recall_at_12": 0.06489931435585325
+          },
+          "sampled": {
+            "users_evaluated": 883,
+            "map_at_12": 0.03043635837773113,
+            "hit_rate": 0.13590033975084936,
+            "recall_at_12": 0.061189918177600895
+          },
+          "bpr_loss": {
+            "users_evaluated": 883,
+            "map_at_12": 0.030166525308088162,
+            "hit_rate": 0.14609286523216308,
+            "recall_at_12": 0.06495631976393453
+          },
+          "bpr_map": {
+            "users_evaluated": 883,
+            "map_at_12": 0.029749312885637914,
+            "hit_rate": 0.1392978482446206,
+            "recall_at_12": 0.061987135934048546
+          },
+          "bpr_sampled": {
+            "users_evaluated": 883,
+            "map_at_12": 0.030947321391120938,
+            "hit_rate": 0.144960362400906,
+            "recall_at_12": 0.06593018231763853
+          },
+          "v1": {
+            "users_evaluated": 883,
+            "map_at_12": 0.028576534435113144,
+            "hit_rate": 0.12004530011325028,
+            "recall_at_12": 0.05613516630034341
+          },
+          "repeat": {
+            "users_evaluated": 883,
+            "map_at_12": 0.025383093663812802,
+            "hit_rate": 0.10532276330690826,
+            "recall_at_12": 0.047146869458139444
+          }
+        },
+        "paired_vs_previous_loss": {
+          "sampled": {
+            "mean_delta": -0.0009894632931628025,
+            "lower_95": -0.0036973075101209714,
+            "upper_95": 0.001791801898604331,
+            "paired_customers": 883,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          },
+          "bpr_loss": {
+            "mean_delta": -0.0012592963628057737,
+            "lower_95": -0.004752842591525821,
+            "upper_95": 0.002464318179888912,
+            "paired_customers": 883,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          },
+          "bpr_map": {
+            "mean_delta": -0.0016765087852560207,
+            "lower_95": -0.0055674069719927645,
+            "upper_95": 0.002300785810833402,
+            "paired_customers": 883,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          },
+          "bpr_sampled": {
+            "mean_delta": -0.00047850027977299733,
+            "lower_95": -0.004909342058402688,
+            "upper_95": 0.003942933096666986,
+            "paired_customers": 883,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          }
+        },
+        "paired_sampling_vs_full_map": {
+          "mean_delta": -0.0009155977615773768,
+          "lower_95": -0.0035014725994897094,
+          "upper_95": 0.0016294955909197128,
+          "paired_customers": 883,
+          "bootstrap_resamples": 2000,
+          "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+        },
+        "models": {
+          "previous_loss": {
+            "selected_rounds": 33,
+            "features": 24,
+            "objective": "binary",
+            "selection_metric": "binary_logloss",
+            "negative_sampling": {},
+            "training_snapshots": 3,
+            "external_validation": false
+          },
+          "full_map": {
+            "selected_rounds": 21
+          },
+          "sampled": {
+            "selected_rounds": 24,
+            "features": 24,
+            "objective": "binary",
+            "selection_metric": "full_truth_map12",
+            "negative_sampling": {
+              "initial": {
+                "full_rows": 241526,
+                "sampled_rows": 27714,
+                "positives": 894
+              },
+              "refit": {
+                "full_rows": 369956,
+                "sampled_rows": 42594,
+                "positives": 1374
+              }
+            },
+            "training_snapshots": 3,
+            "external_validation": false
+          },
+          "bpr_loss": {
+            "selected_rounds": 39,
+            "features": 27,
+            "objective": "binary",
+            "selection_metric": "binary_logloss",
+            "negative_sampling": {},
+            "training_snapshots": 3,
+            "external_validation": false
+          },
+          "bpr_map": {
+            "selected_rounds": 69
+          },
+          "bpr_sampled": {
+            "selected_rounds": 16,
+            "features": 27,
+            "objective": "binary",
+            "selection_metric": "full_truth_map12",
+            "negative_sampling": {
+              "initial": {
+                "full_rows": 241526,
+                "sampled_rows": 27714,
+                "positives": 894
+              },
+              "refit": {
+                "full_rows": 369956,
+                "sampled_rows": 42594,
+                "positives": 1374
+              }
+            },
+            "training_snapshots": 3,
+            "external_validation": false
+          }
+        }
+      },
+      {
+        "holdout_end": "2020-09-08",
+        "retrieval": {
+          "users": 915,
+          "truth_pairs": 3267,
+          "sources": {
+            "base": {
+              "reachable_pairs": 449,
+              "additional_pairs_over_base": 0,
+              "micro_recall": 0.1374349556167738,
+              "macro_recall": 0.1736011010528525,
+              "users_with_reachable_truth": 319,
+              "oracle_map_at_12": 0.174658883921179,
+              "candidates_min_median_max": [
+                76,
+                104.0,
+                174
+              ]
+            },
+            "family": {
+              "reachable_pairs": 58,
+              "additional_pairs_over_base": 11,
+              "micro_recall": 0.01775329048056321,
+              "macro_recall": 0.0255814434502959,
+              "users_with_reachable_truth": 50,
+              "oracle_map_at_12": 0.02567004944054124,
+              "candidates_min_median_max": [
+                0,
+                4.0,
+                50
+              ]
+            },
+            "recent_basket": {
+              "reachable_pairs": 192,
+              "additional_pairs_over_base": 33,
+              "micro_recall": 0.05876951331496786,
+              "macro_recall": 0.07308286716676306,
+              "users_with_reachable_truth": 145,
+              "oracle_map_at_12": 0.07354844305663981,
+              "candidates_min_median_max": [
+                0,
+                50.0,
+                50
+              ]
+            },
+            "latent": {
+              "reachable_pairs": 210,
+              "additional_pairs_over_base": 77,
+              "micro_recall": 0.0642791551882461,
+              "macro_recall": 0.07942949334085977,
+              "users_with_reachable_truth": 162,
+              "oracle_map_at_12": 0.08000796410632477,
+              "candidates_min_median_max": [
+                50,
+                50.0,
+                50
+              ]
+            },
+            "union": {
+              "reachable_pairs": 559,
+              "additional_pairs_over_base": 110,
+              "micro_recall": 0.17110498928680748,
+              "macro_recall": 0.20946711904624463,
+              "users_with_reachable_truth": 371,
+              "oracle_map_at_12": 0.2109257682208502,
+              "candidates_min_median_max": [
+                104,
+                158.0,
+                255
+              ]
+            }
+          },
+          "holdout_end": "2020-09-08",
+          "cutoff": "2020-09-02",
+          "channel_fit_seconds": 47.033201180000106,
+          "candidate_seconds_p50_p95": [
+            0.007765841999571421,
+            0.008946501499667647
+          ]
+        },
+        "metrics": {
+          "previous_loss": {
+            "users_evaluated": 915,
+            "map_at_12": 0.03355849675521807,
+            "hit_rate": 0.14426229508196722,
+            "recall_at_12": 0.07439507454936577
+          },
+          "full_map": {
+            "users_evaluated": 915,
+            "map_at_12": 0.030756946908586255,
+            "hit_rate": 0.14098360655737704,
+            "recall_at_12": 0.0752111751243863
+          },
+          "sampled": {
+            "users_evaluated": 915,
+            "map_at_12": 0.030703827239346365,
+            "hit_rate": 0.1377049180327869,
+            "recall_at_12": 0.07429392297762596
+          },
+          "bpr_loss": {
+            "users_evaluated": 915,
+            "map_at_12": 0.034403958594532366,
+            "hit_rate": 0.14754098360655737,
+            "recall_at_12": 0.07919104467802636
+          },
+          "bpr_map": {
+            "users_evaluated": 915,
+            "map_at_12": 0.03348010309531257,
+            "hit_rate": 0.1453551912568306,
+            "recall_at_12": 0.07747056115426414
+          },
+          "bpr_sampled": {
+            "users_evaluated": 915,
+            "map_at_12": 0.031008597555045644,
+            "hit_rate": 0.1366120218579235,
+            "recall_at_12": 0.07351138735902477
+          },
+          "v1": {
+            "users_evaluated": 915,
+            "map_at_12": 0.030523774040167484,
+            "hit_rate": 0.11912568306010929,
+            "recall_at_12": 0.06312836525951279
+          },
+          "repeat": {
+            "users_evaluated": 915,
+            "map_at_12": 0.0243398097551103,
+            "hit_rate": 0.10601092896174863,
+            "recall_at_12": 0.055908046558962664
+          }
+        },
+        "paired_vs_previous_loss": {
+          "sampled": {
+            "mean_delta": -0.0028546695158717015,
+            "lower_95": -0.008153524642732292,
+            "upper_95": 0.00228846456366948,
+            "paired_customers": 915,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          },
+          "bpr_loss": {
+            "mean_delta": 0.0008454618393142981,
+            "lower_95": -0.0027240829942674215,
+            "upper_95": 0.004275378631816473,
+            "paired_customers": 915,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          },
+          "bpr_map": {
+            "mean_delta": -7.839365990549987e-05,
+            "lower_95": -0.003612907541675757,
+            "upper_95": 0.0032152020355344577,
+            "paired_customers": 915,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          },
+          "bpr_sampled": {
+            "mean_delta": -0.0025498992001724246,
+            "lower_95": -0.007538982230580592,
+            "upper_95": 0.0025941994923210743,
+            "paired_customers": 915,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          }
+        },
+        "paired_sampling_vs_full_map": {
+          "mean_delta": -5.3119669239887565e-05,
+          "lower_95": -0.004493719576062472,
+          "upper_95": 0.004229310638258719,
+          "paired_customers": 915,
+          "bootstrap_resamples": 2000,
+          "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+        },
+        "models": {
+          "previous_loss": {
+            "selected_rounds": 35,
+            "features": 24,
+            "objective": "binary",
+            "selection_metric": "binary_logloss",
+            "negative_sampling": {},
+            "training_snapshots": 3,
+            "external_validation": false
+          },
+          "full_map": {
+            "selected_rounds": 6
+          },
+          "sampled": {
+            "selected_rounds": 9,
+            "features": 24,
+            "objective": "binary",
+            "selection_metric": "full_truth_map12",
+            "negative_sampling": {
+              "initial": {
+                "full_rows": 254771,
+                "sampled_rows": 29698,
+                "positives": 958
+              },
+              "refit": {
+                "full_rows": 392379,
+                "sampled_rows": 46221,
+                "positives": 1491
+              }
+            },
+            "training_snapshots": 3,
+            "external_validation": false
+          },
+          "bpr_loss": {
+            "selected_rounds": 35,
+            "features": 27,
+            "objective": "binary",
+            "selection_metric": "binary_logloss",
+            "negative_sampling": {},
+            "training_snapshots": 3,
+            "external_validation": false
+          },
+          "bpr_map": {
+            "selected_rounds": 32
+          },
+          "bpr_sampled": {
+            "selected_rounds": 3,
+            "features": 27,
+            "objective": "binary",
+            "selection_metric": "full_truth_map12",
+            "negative_sampling": {
+              "initial": {
+                "full_rows": 254771,
+                "sampled_rows": 29698,
+                "positives": 958
+              },
+              "refit": {
+                "full_rows": 392379,
+                "sampled_rows": 46221,
+                "positives": 1491
+              }
+            },
+            "training_snapshots": 3,
+            "external_validation": false
+          }
+        }
+      }
+    ],
+    "serving_hashes_unchanged": true
+  },
+  "supervision_scale": {
+    "scope": "Training examples change only; evaluation customers/full truth/candidate pools and latest validation cohort remain original and fixed; no promotion",
+    "original_users": 5000,
+    "training_users": 25000,
+    "results": [
+      {
+        "holdout_end": "2020-09-01",
+        "retrieval": {
+          "users": 3556,
+          "truth_pairs": 11363,
+          "sources": {
+            "base": {
+              "reachable_pairs": 1552,
+              "additional_pairs_over_base": 0,
+              "micro_recall": 0.13658364868432632,
+              "macro_recall": 0.1530621772252622,
+              "users_with_reachable_truth": 1099,
+              "oracle_map_at_12": 0.15385480426959597,
+              "candidates_min_median_max": [
+                84,
+                103.0,
+                191
+              ]
+            },
+            "family": {
+              "reachable_pairs": 194,
+              "additional_pairs_over_base": 56,
+              "micro_recall": 0.01707295608554079,
+              "macro_recall": 0.02034673007785213,
+              "users_with_reachable_truth": 161,
+              "oracle_map_at_12": 0.020431171752881554,
+              "candidates_min_median_max": [
+                0,
+                3.0,
+                50
+              ]
+            },
+            "recent_basket": {
+              "reachable_pairs": 568,
+              "additional_pairs_over_base": 101,
+              "micro_recall": 0.0499867992607586,
+              "macro_recall": 0.05425100112510872,
+              "users_with_reachable_truth": 431,
+              "oracle_map_at_12": 0.05460424386886703,
+              "candidates_min_median_max": [
+                0,
+                50.0,
+                50
+              ]
+            },
+            "latent": {
+              "reachable_pairs": 642,
+              "additional_pairs_over_base": 268,
+              "micro_recall": 0.05649916395318138,
+              "macro_recall": 0.05901377946392128,
+              "users_with_reachable_truth": 485,
+              "oracle_map_at_12": 0.05947081290163405,
+              "candidates_min_median_max": [
+                50,
+                50.0,
+                50
+              ]
+            },
+            "union": {
+              "reachable_pairs": 1933,
+              "additional_pairs_over_base": 381,
+              "micro_recall": 0.170113526357476,
+              "macro_recall": 0.1863722991682644,
+              "users_with_reachable_truth": 1281,
+              "oracle_map_at_12": 0.18748215523384262,
+              "candidates_min_median_max": [
+                102,
+                155.0,
+                263
+              ]
+            }
+          },
+          "holdout_end": "2020-09-01",
+          "cutoff": "2020-08-26",
+          "channel_fit_seconds": 42.018795427999976,
+          "candidate_seconds_p50_p95": [
+            0.007826160499462276,
+            0.00915141774953554
+          ]
+        },
+        "metrics": {
+          "previous3": {
+            "users_evaluated": 883,
+            "map_at_12": 0.03142582167089393,
+            "hit_rate": 0.14269535673839184,
+            "recall_at_12": 0.06493212098548887
+          },
+          "original5": {
+            "users_evaluated": 883,
+            "map_at_12": 0.028765373766789396,
+            "hit_rate": 0.13816534541336353,
+            "recall_at_12": 0.06644069483268106
+          },
+          "expanded3": {
+            "users_evaluated": 883,
+            "map_at_12": 0.027200707565424954,
+            "hit_rate": 0.13703284258210646,
+            "recall_at_12": 0.06265186380715694
+          },
+          "expanded5": {
+            "users_evaluated": 883,
+            "map_at_12": 0.028389542093534163,
+            "hit_rate": 0.12570781426953567,
+            "recall_at_12": 0.05924626600744816
+          },
+          "v1": {
+            "users_evaluated": 883,
+            "map_at_12": 0.028576534435113144,
+            "hit_rate": 0.12004530011325028,
+            "recall_at_12": 0.05613516630034341
+          },
+          "repeat": {
+            "users_evaluated": 883,
+            "map_at_12": 0.025383093663812802,
+            "hit_rate": 0.10532276330690826,
+            "recall_at_12": 0.047146869458139444
+          }
+        },
+        "paired_vs_previous3": {
+          "original5": {
+            "mean_delta": -0.00266044790410454,
+            "lower_95": -0.006019966267743394,
+            "upper_95": 0.00025106363202780725,
+            "paired_customers": 883,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          },
+          "expanded3": {
+            "mean_delta": -0.00422511410546898,
+            "lower_95": -0.008209906166717315,
+            "upper_95": -0.0007539891912758517,
+            "paired_customers": 883,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          },
+          "expanded5": {
+            "mean_delta": -0.003036279577359769,
+            "lower_95": -0.00682456344660411,
+            "upper_95": 0.00028017239131945457,
+            "paired_customers": 883,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          }
+        },
+        "models": {
+          "previous3": {
+            "selected_rounds": 33,
+            "features": 24,
+            "objective": "binary",
+            "selection_metric": "binary_logloss",
+            "negative_sampling": {},
+            "training_snapshots": 3,
+            "external_validation": true,
+            "training_rows": 369956,
+            "training_positives": 1374,
+            "user_windows": 2388,
+            "validation_users": 823
+          },
+          "original5": {
+            "selected_rounds": 51,
+            "features": 24,
+            "objective": "binary",
+            "selection_metric": "binary_logloss",
+            "negative_sampling": {},
+            "training_snapshots": 5,
+            "external_validation": true,
+            "training_rows": 571603,
+            "training_positives": 2062,
+            "user_windows": 3724,
+            "validation_users": 823
+          },
+          "expanded3": {
+            "selected_rounds": 77,
+            "features": 24,
+            "objective": "binary",
+            "selection_metric": "binary_logloss",
+            "negative_sampling": {},
+            "training_snapshots": 3,
+            "external_validation": true,
+            "training_rows": 1490229,
+            "training_positives": 5198,
+            "user_windows": 9672,
+            "validation_users": 823
+          },
+          "expanded5": {
+            "selected_rounds": 110,
+            "features": 24,
+            "objective": "binary",
+            "selection_metric": "binary_logloss",
+            "negative_sampling": {},
+            "training_snapshots": 5,
+            "external_validation": true,
+            "training_rows": 2521847,
+            "training_positives": 8657,
+            "user_windows": 16579,
+            "validation_users": 823
+          }
+        }
+      },
+      {
+        "holdout_end": "2020-09-08",
+        "retrieval": {
+          "users": 915,
+          "truth_pairs": 3267,
+          "sources": {
+            "base": {
+              "reachable_pairs": 449,
+              "additional_pairs_over_base": 0,
+              "micro_recall": 0.1374349556167738,
+              "macro_recall": 0.1736011010528525,
+              "users_with_reachable_truth": 319,
+              "oracle_map_at_12": 0.174658883921179,
+              "candidates_min_median_max": [
+                76,
+                104.0,
+                174
+              ]
+            },
+            "family": {
+              "reachable_pairs": 58,
+              "additional_pairs_over_base": 11,
+              "micro_recall": 0.01775329048056321,
+              "macro_recall": 0.0255814434502959,
+              "users_with_reachable_truth": 50,
+              "oracle_map_at_12": 0.02567004944054124,
+              "candidates_min_median_max": [
+                0,
+                4.0,
+                50
+              ]
+            },
+            "recent_basket": {
+              "reachable_pairs": 192,
+              "additional_pairs_over_base": 33,
+              "micro_recall": 0.05876951331496786,
+              "macro_recall": 0.07308286716676306,
+              "users_with_reachable_truth": 145,
+              "oracle_map_at_12": 0.07354844305663981,
+              "candidates_min_median_max": [
+                0,
+                50.0,
+                50
+              ]
+            },
+            "latent": {
+              "reachable_pairs": 210,
+              "additional_pairs_over_base": 77,
+              "micro_recall": 0.0642791551882461,
+              "macro_recall": 0.07942949334085977,
+              "users_with_reachable_truth": 162,
+              "oracle_map_at_12": 0.08000796410632477,
+              "candidates_min_median_max": [
+                50,
+                50.0,
+                50
+              ]
+            },
+            "union": {
+              "reachable_pairs": 559,
+              "additional_pairs_over_base": 110,
+              "micro_recall": 0.17110498928680748,
+              "macro_recall": 0.20946711904624463,
+              "users_with_reachable_truth": 371,
+              "oracle_map_at_12": 0.2109257682208502,
+              "candidates_min_median_max": [
+                104,
+                158.0,
+                255
+              ]
+            }
+          },
+          "holdout_end": "2020-09-08",
+          "cutoff": "2020-09-02",
+          "channel_fit_seconds": 47.033201180000106,
+          "candidate_seconds_p50_p95": [
+            0.007765841999571421,
+            0.008946501499667647
+          ]
+        },
+        "metrics": {
+          "previous3": {
+            "users_evaluated": 915,
+            "map_at_12": 0.03355849675521807,
+            "hit_rate": 0.14426229508196722,
+            "recall_at_12": 0.07439507454936577
+          },
+          "original5": {
+            "users_evaluated": 915,
+            "map_at_12": 0.035990207547389436,
+            "hit_rate": 0.1355191256830601,
+            "recall_at_12": 0.07453672207288407
+          },
+          "expanded3": {
+            "users_evaluated": 915,
+            "map_at_12": 0.036753979237000314,
+            "hit_rate": 0.146448087431694,
+            "recall_at_12": 0.07854157467947245
+          },
+          "expanded5": {
+            "users_evaluated": 915,
+            "map_at_12": 0.03657983556617436,
+            "hit_rate": 0.14098360655737704,
+            "recall_at_12": 0.07598844778208326
+          },
+          "v1": {
+            "users_evaluated": 915,
+            "map_at_12": 0.030523774040167484,
+            "hit_rate": 0.11912568306010929,
+            "recall_at_12": 0.06312836525951279
+          },
+          "repeat": {
+            "users_evaluated": 915,
+            "map_at_12": 0.0243398097551103,
+            "hit_rate": 0.10601092896174863,
+            "recall_at_12": 0.055908046558962664
+          }
+        },
+        "paired_vs_previous3": {
+          "original5": {
+            "mean_delta": 0.00243171079217137,
+            "lower_95": -0.0015994021041518115,
+            "upper_95": 0.00648622435954841,
+            "paired_customers": 915,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          },
+          "expanded3": {
+            "mean_delta": 0.003195482481782247,
+            "lower_95": -0.0007182597179181881,
+            "upper_95": 0.007431152485694832,
+            "paired_customers": 915,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          },
+          "expanded5": {
+            "mean_delta": 0.003021338810956297,
+            "lower_95": -0.0011949282540471057,
+            "upper_95": 0.007280640634158392,
+            "paired_customers": 915,
+            "bootstrap_resamples": 2000,
+            "scope": "Selected-customer resampling; excludes selection and model-choice uncertainty"
+          }
+        },
+        "models": {
+          "previous3": {
+            "selected_rounds": 35,
+            "features": 24,
+            "objective": "binary",
+            "selection_metric": "binary_logloss",
+            "negative_sampling": {},
+            "training_snapshots": 3,
+            "external_validation": true,
+            "training_rows": 392379,
+            "training_positives": 1491,
+            "user_windows": 2522,
+            "validation_users": 883
+          },
+          "original5": {
+            "selected_rounds": 54,
+            "features": 24,
+            "objective": "binary",
+            "selection_metric": "binary_logloss",
+            "negative_sampling": {},
+            "training_snapshots": 5,
+            "external_validation": true,
+            "training_rows": 616387,
+            "training_positives": 2276,
+            "user_windows": 3989,
+            "validation_users": 883
+          },
+          "expanded3": {
+            "selected_rounds": 39,
+            "features": 24,
+            "objective": "binary",
+            "selection_metric": "binary_logloss",
+            "negative_sampling": {},
+            "training_snapshots": 3,
+            "external_validation": true,
+            "training_rows": 1552196,
+            "training_positives": 5429,
+            "user_windows": 10009,
+            "validation_users": 883
+          },
+          "expanded5": {
+            "selected_rounds": 77,
+            "features": 24,
+            "objective": "binary",
+            "selection_metric": "binary_logloss",
+            "negative_sampling": {},
+            "training_snapshots": 5,
+            "external_validation": true,
+            "training_rows": 2580423,
+            "training_positives": 8801,
+            "user_windows": 16791,
+            "validation_users": 883
+          }
+        }
+      }
+    ],
+    "cohort": {
+      "sampling_cutoff_exclusive": "2020-07-22",
+      "minimum_past_events": 1,
+      "seed": 20261030,
+      "additional_users": 20000,
+      "eligible_unexcluded_users": 166556,
+      "excluded_shoppers": 45000,
+      "latest_supervised_event": "2020-09-01",
+      "training_users": 25000,
+      "old_user_crosswalk_preserved": true,
+      "original_evaluation_users": 5000,
+      "cohort_sha256": "36924e3e91d72fcc8402cbe4816836067edefa65a69e29a264877c6024f7eacb",
+      "original_evaluation_and_reserved_outcomes_unchanged": true
+    },
+    "serving_hashes_unchanged": true
+  },
+  "protocol": {
+    "candidate_pools": "Same 24-column expanded pools; original evaluation users/full truth; BPR adds3features only",
+    "bpr": "implicit0.7.3 CPU/64factors+nativebias/50epochs/lr.05/L2.01/seed42/one thread/verifiednegatives; past-only binary crowd",
+    "sampling": "All recalled positives; uniform up to30 negatives perpositive without replacement; seed42; full validation/test",
+    "scale": "original5000 vs preserved+20000 past-selected trainingprofiles;3 vs5 prior labeledweeks; same original-only latest validation",
+    "tree": "400cap/patience30/31leaves/depth6/minleaf50/lr.05/L2=1/seed42/threads2",
+    "winner": "One fixed newarm with >=5% relativeMAP vs previousloss on BOTH developmentweeks and nohit/macrorecall loss vs v1; greatest equal-week meanMAP ifmultiple; otherwise reservedoutcomes remainuninspected",
+    "restored_after_restart": true,
+    "original_protocol_record": "Frozen before prior interrupted run; same arms/cohort/gates, no target inspection or redesign"
+  },
+  "reservation": {
+    "cutoff": "2020-09-09",
+    "holdout_end": "2020-09-15",
+    "seed": 20261029,
+    "size": 20000,
+    "minimum_past_catalog_events": 5,
+    "excluded_spent_shoppers": 25000,
+    "eligible_remaining_shoppers": 165168,
+    "cohort_sha256": "75a63667f57ba62ec6d4e5a8b7b61eb3888100e334662853485ecd31c37d713e",
+    "target_outcomes_inspected": false
+  },
+  "qualification": {
+    "qualifiers": [],
+    "all_new_arms_failed": true
+  },
+  "source_audit": {
+    "pin": "c73992d1d088e6565719082e68c6a853e365c94f",
+    "reranker_sha256": "014a34f905810b8d2a73401822295d62c6880fde1f5a8fa0990383b11eb5d54f",
+    "method": "Read-only JSON/source inspection, no author code executed; author scores not reproduced"
+  },
+  "input_sha256_post_run": {
+    "evaluation/products": "00bb97539e3d4f9c301a198966a4c8742ac20f27add17ad3ddfc39cdd4767e37",
+    "evaluation/users": "36c87098d60c358b15d5b963ffd1c4020cf373b1f686a086e0f6a9769097e633",
+    "evaluation/purchases": "8b2b64769589a143bc29ac125705c30fc7d2fc61a9a95ae6749e0f7356be7a81",
+    "evaluation/shopper_purchases": "9561f59433dfce521276ef48cecf166de17857711a3a6046a1f03d6893ae5ae7",
+    "training/products": "00bb97539e3d4f9c301a198966a4c8742ac20f27add17ad3ddfc39cdd4767e37",
+    "training/users": "70ade5f752b29a8988336efba8f9fc169f3219fa72a31b566db665d3e0e45425",
+    "training/purchases": "0581a0aac29617ad989684db7ce3eefa0298efcd7a5ed50baff567fe8a04516c",
+    "training/shopper_purchases": "9561f59433dfce521276ef48cecf166de17857711a3a6046a1f03d6893ae5ae7"
+  },
+  "fresh_controls_reproduced_to_1e_12": true
+}
