@@ -30,7 +30,7 @@ ANSWER_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are Clothy, a friendly and concise fashion shopping assistant. "
+            "You are Curio, a friendly and concise fashion shopping assistant. "
             "Recommend only catalog products supplied below or returned by tools; the latest "
             "search replaces earlier matches. Never invent products, prices "
             "or details. For each recommended product give its name, colour and price in "

@@ -747,7 +747,7 @@ def test_main_renders_only_selected_native_page(mocked_api):
     calls, _ = mocked_api
     app = AppTest.from_function(run_main).run()
     assert not app.exception
-    assert app.title[0].value == "For you"
+    assert app.title[0].value == "Find your next favorite."
     assert any(path == "/health" for path, _ in calls)
     assert not any(
         path in ("/evaluation", "/search/examples") or path.endswith("/graph") for path, _ in calls
@@ -757,7 +757,7 @@ def test_main_renders_only_selected_native_page(mocked_api):
 
 def test_product_detail_is_reachable_from_catalog_and_keeps_names_plain(mocked_api):
     calls, _ = mocked_api
-    app = AppTest.from_function(run_main).run()
+    app = AppTest.from_string("from clothes_recommender import ui; ui.recommendations_tab()").run()
     app.button(key="detail_recommendations_2_0").click().run()
     assert not app.exception
     assert ("/products/2", {}) in calls
@@ -786,7 +786,9 @@ def test_validated_ranker_is_default_when_api_reports_it_ready(mocked_api):
             }
         },
     )
-    app = AppTest.from_function(run_main).run()
+    app = AppTest.from_string("from clothes_recommender import ui; ui.recommendations_tab()")
+    app.session_state["service_health"] = overrides["/health"][1]["json"]
+    app.run()
     assert not app.exception
     assert next(widget for widget in app.radio if widget.label == "Strategy").value == "learned"
     assert ("/users/7/recommendations", {"strategy": "learned", "top_k": "12"}) in calls
@@ -935,3 +937,70 @@ def test_chat_sends_prior_product_ids_for_followup(mocked_api, request_bodies):
     request = ChatRequest.model_validate_json(request_bodies["/chat"][-1])
     assert request.history[-1].product_ids == [PRODUCT["product_id"]]
     assert request.history[0].product_ids == []
+
+
+DRINK = {
+    "drink_id": 2,
+    "name": "Fixture Cooler",
+    "alcohol_status": "Non alcoholic",
+    "glass": "Highball",
+    "ingredients": [{"name": "Lime", "measure": "30 ml"}],
+    "instructions": "Stir over ice.",
+    "image_url": None,
+    "source_url": "https://www.thecocktaildb.com/drink/2",
+}
+
+
+def test_agent_home_separates_domains_and_sends_recipe_ids(mocked_api, request_bodies):
+    _, overrides = mocked_api
+    overrides["/health"] = (
+        200,
+        {
+            "json": {
+                "status": "ok",
+                "indexed_products": 2,
+                "chat_enabled": True,
+                "cocktails_enabled": True,
+            }
+        },
+    )
+    overrides["/chat"] = (200, {"json": {"text": "A coat.", "products": [PRODUCT]}})
+    overrides["/cocktails/chat"] = (200, {"json": {"text": "A cooler.", "cocktails": [DRINK]}})
+    app = AppTest.from_function(run_main).run()
+    app.chat_input(key="chat_input_home").set_value("Find a coat").run()
+    assert len(app.session_state["chat_history"]) == 2
+    app.session_state["agent_domain"] = "Cocktails"
+    app.run()
+    app.chat_input(key="chat_input_home_cocktails").set_value("A lime drink").run()
+    assert not app.exception
+    assert json.loads(request_bodies["/cocktails/chat"][-1])["history"] == []
+    app.chat_input(key="chat_input_home_cocktails").set_value("How much lime?").run()
+    assert json.loads(request_bodies["/cocktails/chat"][-1])["history"][-1]["drink_ids"] == [2]
+    app.session_state["agent_domain"] = "Fashion"
+    app.run()
+    assert len(app.session_state["chat_history"]) == 2
+    app.button(key="chat_reset_home").click().run()
+    assert app.session_state["chat_history"] == []
+    assert len(app.session_state["cocktail_chat_history"]) == 4
+
+
+def test_cocktail_recipe_search_and_details_use_source_fields(mocked_api, request_bodies):
+    _, overrides = mocked_api
+    overrides["/health"] = (200, {"json": {"status": "ok", "cocktails_enabled": True}})
+    overrides["/cocktails/search"] = (200, {"json": [DRINK]})
+    app = AppTest.from_string("from clothes_recommender import ui; ui.cocktails_page()").run()
+    assert not app.exception
+    app.text_input[0].set_value("Cooler")
+    app.text_input[1].set_value("Lime")
+    app.checkbox[0].set_value(True)
+    next(b for b in app.button if b.label == "Find recipes").click().run()
+    assert not app.exception
+    assert json.loads(request_bodies["/cocktails/search"][-1]) == {
+        "query": "Cooler",
+        "ingredient": "Lime",
+        "non_alcoholic": True,
+    }
+    app.button(key="recipe_2").click().run()
+    assert not app.exception
+    assert any("30 ml Lime" in text.value for text in app.markdown)
+    assert any(header.value == "Fixture Cooler" for header in app.subheader)

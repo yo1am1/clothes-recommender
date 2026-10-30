@@ -138,7 +138,9 @@ def create_app(services: Services | None = None) -> FastAPI:
         app.state.services.store.close()
 
     app = FastAPI(
-        title="Clothes Recommender API", version=version("clothes-recommender"), lifespan=lifespan
+        title="Curio Recommendation API",
+        version=version("curio-recommendations"),
+        lifespan=lifespan,
     )
 
     @app.exception_handler(IndexNotBuiltError)

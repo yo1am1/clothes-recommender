@@ -1,4 +1,4 @@
-"""Clothy fashion-discovery MVP: a thin Streamlit client over the HTTP API.
+"""Curio agentic recommendation platform: a thin Streamlit client over the HTTP API.
 
 Run with: uv run streamlit run src/clothes_recommender/ui.py
 """
@@ -880,6 +880,89 @@ def discovery_page() -> None:
         image_search_tab()
 
 
+@st.dialog("Recipe")
+def cocktail_details(drink: dict) -> None:
+    st.subheader(drink["name"])
+    st.caption(f"{drink['alcohol_status']} · {drink['glass']}")
+    st.markdown("**Ingredients**")
+    for ingredient in drink["ingredients"]:
+        measure = ingredient.get("measure")
+        st.write(f"{measure + ' ' if measure else ''}{ingredient['name']}")
+        if not measure:
+            st.caption("Quantity not specified by the source.")
+    st.markdown("**Preparation**")
+    st.write(drink["instructions"] or "Preparation not specified by the source.")
+    st.link_button("Recipe source · TheCocktailDB", drink["source_url"])
+
+
+def cocktails_page() -> None:
+    st.title("Cocktails")
+    st.caption("Start with a drink name or an ingredient. Find a recipe, then make it yours.")
+    health = st.session_state.get("service_health") or call_api("GET", "/health")
+    if not health or not health.get("cocktails_enabled"):
+        st.info("Cocktail discovery is currently unavailable. You can still explore fashion.")
+        return
+    with st.form("cocktail_search"):
+        query = st.text_input(
+            "Cocktail name", placeholder="Margarita, Mojito, Gimlet…", max_chars=100
+        )
+        left, right = st.columns([2, 1], vertical_alignment="bottom")
+        ingredient = left.text_input(
+            "Ingredient", placeholder="Optional, e.g. gin or lime", max_chars=100
+        )
+        non_alcoholic = right.checkbox("Alcohol-free only")
+        submitted = st.form_submit_button("Find recipes", type="primary")
+    if submitted:
+        if not (query.strip() or ingredient.strip() or non_alcoholic):
+            st.info("Enter a name or ingredient, or choose alcohol-free recipes.")
+        else:
+            with st.spinner("Finding verified recipes…"):
+                drinks = call_api(
+                    "POST",
+                    "/cocktails/search",
+                    json={"query": query, "ingredient": ingredient, "non_alcoholic": non_alcoholic},
+                )
+            if drinks is not None:
+                st.session_state["cocktail_results"] = drinks
+    drinks = st.session_state.get("cocktail_results")
+    if drinks == []:
+        st.info("No verified matches in this search. Try another drink name or ingredient.")
+    if drinks:
+        st.subheader("Recipes to explore")
+        with st.container(key="cocktail_results"):
+            for offset in range(0, len(drinks), 3):
+                for column, drink in zip(st.columns(3), drinks[offset : offset + 3], strict=False):
+                    with column, st.container(border=True):
+                        if drink.get("image_url"):
+                            st.image(drink["image_url"], width="stretch")
+                        with st.container(key=f"cocktail_name_{drink['drink_id']}"):
+                            st.text(drink["name"])
+                        st.caption(drink["alcohol_status"])
+                        if st.button(
+                            "View recipe", key=f"recipe_{drink['drink_id']}", width="stretch"
+                        ):
+                            cocktail_details(drink)
+    st.caption("Recipe data and imagery: [TheCocktailDB](https://www.thecocktaildb.com/).")
+
+
+def agent_home() -> None:
+    st.title("Find your next favorite.")
+    st.caption("Tell Curio what you like. Explore options, compare the details, and find your fit.")
+    domain = st.segmented_control(
+        "Explore", ["Fashion", "Cocktails"], default="Fashion", required=True, key="agent_domain"
+    )
+    selected = "cocktails" if domain == "Cocktails" else "fashion"
+    st.button(
+        "New conversation",
+        type="tertiary",
+        key="chat_reset_home",
+        on_click=reset_chat,
+        args=(selected,),
+    )
+    with st.container(key="agent_conversation"):
+        chat_conversation("home", selected)
+
+
 def show_chat_turn(turn: dict, index: int, context: str) -> None:
     with st.chat_message(turn["role"]):
         st.markdown(turn["content"])
@@ -896,77 +979,111 @@ def show_chat_turn(turn: dict, index: int, context: str) -> None:
                     st.caption(f"€{product['price']:.2f} · {product['colour']}")
                 if st.button("View", key=f"chat_view_{context}_{index}_{product['product_id']}"):
                     product_details(product["product_id"])
+        for drink in turn.get("cocktails", []):
+            with st.container(horizontal=True, vertical_alignment="center"):
+                if drink.get("image_url"):
+                    st.image(drink["image_url"], width=56)
+                with st.container(gap=None):
+                    st.text(drink["name"])
+                    st.caption(drink["alcohol_status"])
+                if st.button("Recipe", key=f"chat_recipe_{context}_{index}_{drink['drink_id']}"):
+                    cocktail_details(drink)
 
 
-def reset_chat() -> None:
-    st.session_state["chat_history"] = []
+def reset_chat(domain: str = "fashion") -> None:
+    key = "cocktail_chat_history" if domain == "cocktails" else "chat_history"
+    st.session_state[key] = []
 
 
 def close_assistant() -> None:
     st.session_state["assistant_popup"] = False
 
 
-def chat_conversation(context: str) -> None:
+def chat_conversation(context: str, domain: str = "fashion") -> None:
+    if domain == "cocktails":
+        context += "_cocktails"
     health = call_api("GET", "/health")
     if health is None:
         return
-    if not health.get("chat_enabled"):
+    if not health.get("chat_enabled") or (
+        domain == "cocktails" and not health.get("cocktails_enabled")
+    ):
         st.info(
             "The assistant is currently unavailable. "
             "You can still discover pieces by description or photo."
         )
         return
-    history: list[dict] = st.session_state.setdefault("chat_history", [])
-    transcript = st.container(height=360, border=False, autoscroll=True, key=f"chat_log_{context}")
+    history_key = "cocktail_chat_history" if domain == "cocktails" else "chat_history"
+    history: list[dict] = st.session_state.setdefault(history_key, [])
+    transcript = st.container(
+        height=240 if context.startswith("home") and not history else 360,
+        border=False,
+        autoscroll=True,
+        key=f"chat_log_{context}",
+    )
     with transcript:
         if not history:
             with st.chat_message("assistant"):
                 st.markdown(
-                    "Tell me what you're looking for, including a colour, occasion or budget. "
+                    "Tell me a spirit, ingredient or flavor—or ask for an alcohol-free option. "
+                    "Try **a citrusy drink with gin**."
+                    if domain == "cocktails"
+                    else "Tell me what you're looking for, including a colour, occasion or budget. "
                     "Try **white sneakers under €40**."
                 )
         for index, turn in enumerate(history):
             show_chat_turn(turn, index, context)
 
     message = st.chat_input(
-        "Describe a piece or ask a follow-up…", key=f"chat_input_{context}", max_chars=2000
+        "Name an ingredient or describe a drink…"
+        if domain == "cocktails"
+        else "Describe a piece or ask a follow-up…",
+        key=f"chat_input_{context}",
+        max_chars=2000,
     )
     if not message:
         return
     user_turn = {"role": "user", "content": message}
     with transcript:
         show_chat_turn(user_turn, len(history), context)
-        with st.spinner("Finding pieces for you…"):
+        with st.spinner("Exploring options for you…"):
             past_turns = []
             for turn in history[-10:]:
                 item = {"role": turn["role"], "content": turn["content"][:4000]}
                 if turn.get("products"):
                     item["product_ids"] = [p["product_id"] for p in turn["products"][:5]]
+                if turn.get("cocktails"):
+                    item["drink_ids"] = [d["drink_id"] for d in turn["cocktails"][:5]]
                 past_turns.append(item)
-            reply = call_api("POST", "/chat", json={"message": message, "history": past_turns})
+            reply = call_api(
+                "POST",
+                "/cocktails/chat" if domain == "cocktails" else "/chat",
+                json={"message": message, "history": past_turns},
+            )
         if reply is None:
             st.caption("Please send your message again to retry.")
             return
         assistant_turn = {
             "role": "assistant",
             "content": reply["text"],
-            "products": reply["products"],
+            "products": reply.get("products", []),
+            "cocktails": reply.get("cocktails", []),
         }
         show_chat_turn(assistant_turn, len(history) + 1, context)
     history.extend([user_turn, assistant_turn])
 
 
 def chat_tab() -> None:
-    st.title("Shopping assistant")
+    st.title("Ask Curio")
     st.button("New chat", key="chat_reset_page", on_click=reset_chat)
     chat_conversation("page")
 
 
 @st.fragment
-def assistant_popup() -> None:
+def assistant_popup(domain: str = "fashion") -> None:
     with st.container(key="assistant_launcher"):
         popup = st.popover(
-            "Ask Clothy",
+            "Ask Curio",
             icon=":material/chat_bubble:",
             type="primary",
             key="assistant_popup",
@@ -976,28 +1093,44 @@ def assistant_popup() -> None:
         return
     with popup, st.container(key="assistant_panel"):
         with st.container(horizontal=True, vertical_alignment="center"):
-            st.subheader("Clothy", width="stretch", anchor=False)
-            st.button("New chat", key="chat_reset_popup", type="tertiary", on_click=reset_chat)
+            st.subheader("Curio", width="stretch", anchor=False)
+            st.button(
+                "New chat",
+                key="chat_reset_popup",
+                type="tertiary",
+                on_click=reset_chat,
+                args=(domain,),
+            )
             st.button("Close", key="chat_close", type="tertiary", on_click=close_assistant)
-        st.caption("Find pieces. Refine by colour, style or budget.")
-        chat_conversation("popup")
-        st.caption("H&M research catalog · Prices are approximate. Current stock is unknown.")
+        st.caption(
+            "Explore recipes by flavor, ingredients or alcohol-free preference."
+            if domain == "cocktails"
+            else "Find pieces. Refine by colour, style or budget."
+        )
+        chat_conversation("popup", domain)
+        st.caption(
+            "Recipe data: TheCocktailDB."
+            if domain == "cocktails"
+            else "H&M research catalog · Prices are approximate. Current stock is unknown."
+        )
 
 
 def main() -> None:
-    st.set_page_config(page_title="Clothy · Fashion discovery", page_icon="C", layout="wide")
+    st.set_page_config(page_title="Curio · Agentic recommendations", page_icon="C", layout="wide")
     st.html("<style>" + Path(__file__).with_name("ui.css").read_text() + "</style>")
     health = call_api("GET", "/health")
-    st.html('<div class="clothy-brand">Clothy<span>FASHION DISCOVERY</span></div>')
+    st.html('<div class="curio-brand">Curio<span>AGENTIC RECOMMENDATIONS</span></div>')
     if health is None:
-        st.info("Clothy cannot connect right now. Please try again shortly.")
+        st.info("Curio cannot connect right now. Please try again shortly.")
         if st.button("Retry connection"):
             st.rerun()
         return
     st.session_state["service_health"] = health
     page = st.navigation(
         [
-            st.Page(recommendations_tab, title="For you", default=True),
+            st.Page(agent_home, title="Ask Curio", default=True),
+            st.Page(recommendations_tab, title="Fashion", url_path="fashion"),
+            st.Page(cocktails_page, title="Cocktails", url_path="cocktails"),
             st.Page(discovery_page, title="Discover", url_path="discover"),
             st.Page(knowledge_graph_tab, title="Product connections", url_path="connections"),
             st.Page(evaluation_tab, title="Model quality", url_path="quality", visibility="hidden"),
@@ -1006,11 +1139,22 @@ def main() -> None:
         position="top",
     )
     page.run()
-    assistant_popup()
+    domain = (
+        "cocktails"
+        if page.title == "Cocktails"
+        or (page.title == "Ask Curio" and st.session_state.get("agent_domain") == "Cocktails")
+        else "fashion"
+    )
+    if page.title != "Ask Curio":
+        assistant_popup(domain)
     with st.container(key="catalog_note"):
         indexed = f"{health['indexed_products']:,}"
         total = f" of {health['catalog_products']:,}" if health.get("catalog_products") else ""
-        st.caption(f"H&M 2020 research catalog · Photo search: {indexed}{total} pieces")
+        st.caption(
+            "Recipe data and imagery: TheCocktailDB · Source recipes, not purchase predictions"
+            if domain == "cocktails"
+            else f"H&M 2020 research catalog · Photo search: {indexed}{total} pieces"
+        )
 
 
 if __name__ == "__main__":

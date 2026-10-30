@@ -136,6 +136,7 @@ def main() -> None:
         page = browser.new_page(viewport=VIEWPORT)
         page.goto(args.ui_url)
 
+        open_page(page, "Fashion")
         wait_for_photos(page, PHOTOS_IN_VIEW)
         if args.example:
             choose_example(page, args.example)
@@ -181,7 +182,7 @@ def main() -> None:
         wait_for_photos(page, PHOTOS_IN_VIEW + 1)  # results plus the query photo
         capture(page, args.out, "image-search")
 
-        open_page(page, "Model quality")
+        page.goto(args.ui_url.rstrip("/") + "/quality")
         page.get_by_text("MAP@12 measures ranking quality", exact=False).wait_for(
             timeout=RESULT_TIMEOUT_MS
         )
@@ -189,7 +190,7 @@ def main() -> None:
         capture(page, args.out, "evaluation")
 
         if not args.skip_chat:
-            page.get_by_role("button", name="Ask Clothy", exact=False).click()
+            page.get_by_role("button", name="Ask Curio", exact=False).click()
             page.get_by_placeholder("Describe a piece or ask a follow-up…").fill(args.chat_message)
             page.keyboard.press("Enter")
             page.locator('[class*="st-key-chat_product_popup_"]').first.wait_for(

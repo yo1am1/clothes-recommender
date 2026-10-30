@@ -1,7 +1,7 @@
 [project]
-name = "clothes-recommender"
+name = "curio-recommendations"
 version = "0.2.0"
-description = "Multimodal fashion recommender: CLIP vector search, personalised recommendations and an LLM shopping assistant."
+description = "Curio: source-grounded agentic recommendations across fashion and optional cocktail discovery."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [

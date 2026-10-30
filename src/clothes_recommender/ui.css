@@ -1,7 +1,7 @@
 /* Native Streamlit controls retain keyboard, focus and theme behavior. */
 .stMainBlockContainer { max-width: 1180px; padding-top: 5rem; padding-bottom: 4rem; }
-.clothy-brand { font: 500 2.2rem/1 Georgia, serif; letter-spacing: -.06em; margin: .5rem 0 1rem; }
-.clothy-brand span { font: 500 .65rem/1.4 system-ui, sans-serif; letter-spacing: .18em; margin-left: 1.2rem; }
+.curio-brand { font: 500 2.2rem/1 Georgia, serif; letter-spacing: -.06em; margin: .5rem 0 1rem; }
+.curio-brand span { font: 500 .65rem/1.4 system-ui, sans-serif; letter-spacing: .18em; margin-left: 1.2rem; }
 h1 { letter-spacing: -.045em; }
 h2, h3 { letter-spacing: -.025em; }
 [data-testid="stMetricValue"] { font-variant-numeric: tabular-nums; }
@@ -61,8 +61,8 @@ h1, h2, h3 { text-wrap: balance; }
 }
 @media (max-width: 640px) {
     .stMainBlockContainer { padding-top: 3.5rem; }
-    .clothy-brand { font-size: 1.8rem; }
-    .clothy-brand span { margin-left: .75rem; font-size: .55rem; }
+    .curio-brand { font-size: 1.8rem; }
+    .curio-brand span { margin-left: .75rem; font-size: .55rem; }
     [class*="st-key-product_card_"] { max-width: 100%; }
     .st-key-feed_controls { justify-content: flex-start; }
     :is(.st-key-text_search_panel, .st-key-photo_search_panel, .st-key-connection_controls) { padding: 1rem; }
@@ -109,3 +109,9 @@ h1, h2, h3 { text-wrap: balance; }
         height: min(22rem, max(3rem, calc(100dvh - 27rem)));
     }
 }
+
+/* Recipe imagery stays square; names reserve equal space across the row. */
+.st-key-cocktail_results [data-testid="stImage"] img {
+    aspect-ratio: 1; width: 100%; object-fit: cover; border-radius: .4rem;
+}
+[class*="st-key-cocktail_name_"] { min-height: 3rem; font-weight: 550; }
