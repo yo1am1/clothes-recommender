@@ -1,3 +1,28 @@
+# Agent tools and public repository — 2026-10-30
+
+Model quality is hidden from navigation, with `/quality` and research records
+preserved (`cb075b2`). Repository visibility was changed to public under Owner
+instruction after a common credential-pattern/path scan of reachable history;
+this is limited evidence, not a comprehensive confidentiality audit.
+
+The assistant now has a bounded read-only SearchCatalog / InspectProducts loop.
+Visual query refinement preserves extracted budget and metadata constraints.
+The popup sends up to five prior card IDs; server-side catalog lookups resolve
+comparisons and follow-ups. Invalid tools/args are returned as tool errors, and
+exhaustion or empty output falls back to verified catalog items. No execution,
+checkout or stock claims are supported. Existing chat responses remain compatible.
+
+A real three-turn OmniRoute check returned five matches, compared two exact items,
+and refined below€25 with matching price bounds. First turns took6.1/7.0seconds;
+the third took56.7seconds because the SDK retried a429 after43seconds. Separate
+fix `49f423c` disables SDK retries and returns a safe HTTP429 retry message.
+Unit checks validate model configuration and response mapping; no deliberate
+live rate-limit load test was run. Live evidence stays under ignored
+`data/experiments/agent-smoke-20261030`. The next Owner direction is rebranding
+as Curio, a broader agentic recommendation product, with cocktails optional.
+
+---
+
 # Latent and supervision-scale iteration — 2026-10-29
 
 Offline BPR and deterministic recalled-negative sampling helpers plus bounded

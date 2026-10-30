@@ -14,7 +14,7 @@ search, classic and graph recommendations, and an LLM shopping assistant:
 | Graph recommendations | Past purchases seed an in-memory graph of co-purchases, Shopify categories and attributes. Shared attributes are weighted by inverse degree; each result includes its evidence. |
 | Knowledge graph | Explore a product's category, attributes and co-purchased neighbors, with complementary products and higher-priced alternatives. |
 | Offline evaluation | Every strategy is trained on purchases before a cutoff and scored on the following week (MAP@12, catalog coverage); the Evaluation tab compares them. |
-| Shopping assistant (RAG) | The LLM turns a message into a structured `SearchIntent`: a visual query plus product type, section (e.g. Menswear), colour and price filters. Qdrant retrieves the matching products, and the answer cites only those products. |
+| Tool-using shopping agent | The LLM extracts constraints, retrieves matches, and can refine a visual search or inspect exact product IDs for details and comparisons. Follow-ups reload prior cards from the catalog. Up to four validated read-only tool calls per turn; budget and metadata filters survive query refinements. |
 
 Users without usable purchase history get the products all shoppers bought most in the last
 week of data, which also fill lists that come up short.

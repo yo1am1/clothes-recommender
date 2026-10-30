@@ -21,7 +21,9 @@ class FakeToolCallingChatModel(GenericFakeChatModel):
 type ChatModelFactory = Callable[..., FakeToolCallingChatModel]
 
 
-def _as_message(reply: dict[str, Any] | str) -> AIMessage:
+def _as_message(reply: dict[str, Any] | str | AIMessage) -> AIMessage:
+    if isinstance(reply, AIMessage):
+        return reply
     if isinstance(reply, str):
         return AIMessage(content=reply)
     # A dict becomes a SearchIntent tool call, exactly as a real model would emit it.
@@ -37,7 +39,7 @@ def chat_model_replying() -> ChatModelFactory:
     Each reply is a dict (SearchIntent tool-call arguments) or a str (plain text).
     """
 
-    def build(*replies: dict[str, Any] | str) -> FakeToolCallingChatModel:
+    def build(*replies: dict[str, Any] | str | AIMessage) -> FakeToolCallingChatModel:
         return FakeToolCallingChatModel(messages=iter([_as_message(r) for r in replies]))
 
     return build

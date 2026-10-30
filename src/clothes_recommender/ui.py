@@ -937,9 +937,12 @@ def chat_conversation(context: str) -> None:
     with transcript:
         show_chat_turn(user_turn, len(history), context)
         with st.spinner("Finding pieces for you…"):
-            past_turns = [
-                {"role": turn["role"], "content": turn["content"][:4000]} for turn in history[-10:]
-            ]
+            past_turns = []
+            for turn in history[-10:]:
+                item = {"role": turn["role"], "content": turn["content"][:4000]}
+                if turn.get("products"):
+                    item["product_ids"] = [p["product_id"] for p in turn["products"][:5]]
+                past_turns.append(item)
             reply = call_api("POST", "/chat", json={"message": message, "history": past_turns})
         if reply is None:
             st.caption("Please send your message again to retry.")

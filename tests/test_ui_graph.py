@@ -917,3 +917,21 @@ def test_popup_rechecks_availability_after_backend_configuration_changes(mocked_
     app.run()
     assert not app.exception
     assert bool(app.chat_input) is available
+
+
+def test_chat_sends_prior_product_ids_for_followup(mocked_api, request_bodies):
+    from clothes_recommender.api import ChatRequest
+
+    _, overrides = mocked_api
+    overrides["/health"] = (
+        200,
+        {"json": {"status": "ok", "indexed_products": 2, "chat_enabled": True}},
+    )
+    overrides["/chat"] = (200, {"json": {"text": "Try this piece.", "products": [PRODUCT]}})
+    app = AppTest.from_string("from clothes_recommender import ui; ui.chat_tab()").run()
+    app.chat_input[0].set_value("Show me a coat").run()
+    app.chat_input[0].set_value("What material is that?").run()
+    assert not app.exception
+    request = ChatRequest.model_validate_json(request_bodies["/chat"][-1])
+    assert request.history[-1].product_ids == [PRODUCT["product_id"]]
+    assert request.history[0].product_ids == []
