@@ -4,11 +4,12 @@ from collections.abc import Sequence
 from typing import Literal
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
-from langchain_core.output_parsers import StrOutputParser
-from pydantic import BaseModel, Field, PositiveInt, ValidationError
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+from pydantic import BaseModel, Field, PositiveInt
 
 from clothes_recommender.catalog import ProductCatalog
+from clothes_recommender.chat.agent import MAX_TOOL_CALLS as MAX_TOOL_CALLS
+from clothes_recommender.chat.agent import run_agent
 from clothes_recommender.chat.intent import IntentExtractor, SearchIntent
 from clothes_recommender.chat.prompts import ANSWER_PROMPT, render_products
 from clothes_recommender.chat.tools import TOOLS, InspectProducts, SearchCatalog
@@ -17,13 +18,13 @@ from clothes_recommender.search import ProductSearch
 
 # Each ChatTurn is one message; older turns rarely matter and only cost tokens.
 MAX_HISTORY_TURNS = 10
-MAX_TOOL_CALLS = 4
 
 
 class ChatTurn(BaseModel):
     role: Literal["user", "assistant"]
     content: str = Field(max_length=4000)
     product_ids: list[PositiveInt] = Field(default_factory=list, max_length=5)
+    drink_ids: list[PositiveInt] = Field(default_factory=list, max_length=5)
 
 
 class AssistantReply(BaseModel):
@@ -59,39 +60,20 @@ class ShoppingAssistant:
         messages = ANSWER_PROMPT.invoke(
             {"message": message, "history": history_messages, "products": render_products(products)}
         ).to_messages()
-        calls = 0
-        while True:
-            answer = self._agent.invoke(messages)
-            if not answer.tool_calls:
-                text = StrOutputParser().invoke(answer).strip() or _fallback(products)
-                return AssistantReply(text=text, products=products, intent=intent)
-            messages.append(answer)
-            for call in answer.tool_calls:
-                if calls >= MAX_TOOL_CALLS or not call.get("id"):
-                    return AssistantReply(
-                        text=_fallback(products), products=products, intent=intent
-                    )
-                calls += 1
-                schema = TOOLS.get(call["name"])
-                try:
-                    action = schema.model_validate(call["args"]) if schema else None
-                except ValidationError:
-                    action = None
-                if action is None:
-                    result = (
-                        "Invalid action. Use SearchCatalog with a visual query or "
-                        "InspectProducts with one to five positive catalog product IDs."
-                    )
-                else:
-                    if isinstance(action, SearchCatalog):
-                        intent = intent.model_copy(
-                            update={"query": action.query.strip(), "wants_products": True}
-                        )
-                        products = self._find_products(intent)
-                    elif isinstance(action, InspectProducts):
-                        products = self._catalog.get_many(dict.fromkeys(action.product_ids))
-                    result = render_products(products)
-                messages.append(ToolMessage(content=result, tool_call_id=call["id"]))
+
+        def execute(action: BaseModel) -> str:
+            nonlocal intent, products
+            if isinstance(action, SearchCatalog):
+                intent = intent.model_copy(
+                    update={"query": action.query.strip(), "wants_products": True}
+                )
+                products = self._find_products(intent)
+            elif isinstance(action, InspectProducts):
+                products = self._catalog.get_many(dict.fromkeys(action.product_ids))
+            return render_products(products)
+
+        text = run_agent(self._agent, messages, TOOLS, execute)
+        return AssistantReply(text=text or _fallback(products), products=products, intent=intent)
 
     def _find_products(self, intent: SearchIntent) -> list[Product]:
         hits = self._search.by_text(

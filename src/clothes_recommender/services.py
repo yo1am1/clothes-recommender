@@ -9,7 +9,9 @@ import pandas as pd
 
 from clothes_recommender.catalog import CustomerData, ProductCatalog, load_shopper_purchases
 from clothes_recommender.chat.assistant import ShoppingAssistant
+from clothes_recommender.chat.cocktails import CocktailAssistant
 from clothes_recommender.chat.llm import build_chat_model
+from clothes_recommender.cocktails import CocktailCatalog
 from clothes_recommender.config import Settings
 from clothes_recommender.demo import DemoCustomer, select_demo_customers
 from clothes_recommender.embeddings import ClipEncoder
@@ -42,6 +44,8 @@ class Services:
     query_photos_dir: Path | None = None
     evaluation_path: Path | None = None
     learned: LearnedRecommender | None = None
+    cocktails: CocktailCatalog | None = None
+    cocktail_assistant: CocktailAssistant | None = None
 
     @cached_property
     def demo_customers(self) -> list[DemoCustomer]:
@@ -68,9 +72,18 @@ def build_services(settings: Settings) -> Services:
             )
             links = pd.DataFrame(columns=["product_id", "other_id", "count", "lift"])
 
+        cocktails = (
+            CocktailCatalog(settings.cocktail_api_key.get_secret_value())
+            if settings.cocktail_api_key
+            else None
+        )
         assistant = None
+        cocktail_assistant = None
         if settings.llm_configured:
-            assistant = ShoppingAssistant(build_chat_model(settings), search, catalog)
+            model = build_chat_model(settings)
+            assistant = ShoppingAssistant(model, search, catalog)
+            if cocktails is not None:
+                cocktail_assistant = CocktailAssistant(model, cocktails)
         else:
             logger.warning("LLM_MODEL is not set: the shopping assistant is disabled.")
 
@@ -102,6 +115,8 @@ def build_services(settings: Settings) -> Services:
             repeat=RepeatPurchaseRecommender(customers, popularity),
             images_dir=settings.images_dir,
             assistant=assistant,
+            cocktails=cocktails,
+            cocktail_assistant=cocktail_assistant,
             query_photos_dir=settings.query_photos_dir,
             evaluation_path=settings.evaluation_path,
         )

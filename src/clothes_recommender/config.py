@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.2
     llm_timeout_seconds: float = 60.0
 
+    # Optional separate recipe catalog; no requests are made unless configured.
+    cocktail_api_key: SecretStr | None = None
+
     # --- UI ---------------------------------------------------------------
     api_url: str = "http://localhost:8000"
 

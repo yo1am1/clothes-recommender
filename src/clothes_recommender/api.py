@@ -18,6 +18,8 @@ from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, Field
 
 from clothes_recommender.chat.assistant import AssistantReply, ChatTurn
+from clothes_recommender.chat.cocktails import CocktailReply
+from clothes_recommender.cocktails import Cocktail, CocktailSourceError
 from clothes_recommender.config import get_settings
 from clothes_recommender.demo import DemoCustomer
 from clothes_recommender.domain import Product, ProductFilter, ScoredProduct, User
@@ -72,10 +74,17 @@ class ChatRequest(BaseModel):
     history: list[ChatTurn] = Field(default=[], max_length=MAX_CHAT_HISTORY)
 
 
+class CocktailSearchRequest(BaseModel):
+    query: str = Field(default="", max_length=100)
+    ingredient: str = Field(default="", max_length=100)
+    non_alcoholic: bool = False
+
+
 class Health(BaseModel):
     status: Literal["ok"] = "ok"
     indexed_products: int
     catalog_products: int
+    cocktails_enabled: bool = False
     chat_enabled: bool
     ranking_enabled: bool
 
@@ -147,6 +156,7 @@ def create_app(services: Services | None = None) -> FastAPI:
             indexed_products=indexed,
             catalog_products=len(services.catalog),
             chat_enabled=services.assistant is not None,
+            cocktails_enabled=services.cocktails is not None,
             ranking_enabled=services.learned is not None,
         )
 
@@ -308,8 +318,34 @@ def create_app(services: Services | None = None) -> FastAPI:
                 status_code=503,
                 detail="Chat is disabled: set LLM_MODEL (and LLM_API_KEY / LLM_BASE_URL) in .env.",
             )
+        return agent_reply(services.assistant, request)
+
+    @app.post("/cocktails/search")
+    def cocktail_search(request: CocktailSearchRequest, services: ServicesDep) -> list[Cocktail]:
+        if services.cocktails is None:
+            raise HTTPException(
+                status_code=503, detail="Cocktail discovery is currently unavailable."
+            )
         try:
-            return services.assistant.reply(request.message, request.history)
+            return services.cocktails.search(
+                request.query, ingredient=request.ingredient, non_alcoholic=request.non_alcoholic
+            )
+        except CocktailSourceError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+
+    @app.post("/cocktails/chat")
+    def cocktail_chat(request: ChatRequest, services: ServicesDep) -> CocktailReply:
+        if services.cocktail_assistant is None:
+            raise HTTPException(
+                status_code=503, detail="The cocktail assistant is currently unavailable."
+            )
+        return agent_reply(services.cocktail_assistant, request)
+
+    def agent_reply(agent, request: ChatRequest):
+        try:
+            return agent.reply(request.message, request.history)
+        except CocktailSourceError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
         except IndexNotBuiltError:
             raise
         except Exception as error:

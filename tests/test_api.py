@@ -80,6 +80,7 @@ def test_health_reports_index_size_and_chat_status(client) -> None:
         "catalog_products": 6,
         "chat_enabled": False,
         "ranking_enabled": False,
+        "cocktails_enabled": False,
     }
 
 
@@ -310,3 +311,59 @@ def test_chat_returns_retryable_rate_limit_without_provider_details(services):
         response = client.post("/chat", json={"message": "hi"})
     assert response.status_code == 429
     assert response.json() == {"detail": "The assistant is busy. Please try again shortly."}
+
+
+def test_optional_cocktail_routes_are_disabled_without_source(client):
+    assert client.post("/cocktails/search", json={"query": "Margarita"}).status_code == 503
+    assert client.post("/cocktails/chat", json={"message": "A drink"}).status_code == 503
+    assert not client.get("/health").json()["cocktails_enabled"]
+
+
+def test_cocktail_source_failure_returns_safe_unavailable(services):
+    from clothes_recommender.cocktails import CocktailSourceError
+
+    class BrokenCocktailSource:
+        def search(self, *a, **kw):
+            raise CocktailSourceError("Cocktail discovery is unavailable. Please try again.")
+
+    with TestClient(
+        create_app(dataclasses.replace(services, cocktails=BrokenCocktailSource()))
+    ) as client:
+        assert client.get("/health").json()["cocktails_enabled"]
+        response = client.post("/cocktails/search", json={"query": "Margarita"})
+        assert response.status_code == 503
+        assert "unavailable" in response.json()["detail"]
+
+
+def test_cocktail_routes_forward_preferences_and_recipe_history(services):
+    from types import SimpleNamespace
+
+    from clothes_recommender.chat.cocktails import CocktailReply
+
+    calls = []
+
+    def search(query, **kw):
+        calls.append((query, kw))
+        return []
+
+    class Agent:
+        def reply(self, message, history):
+            assert history[-1].drink_ids == [2]
+            return CocktailReply(text="The source does not specify a quantity.")
+
+    configured = dataclasses.replace(
+        services, cocktails=SimpleNamespace(search=search), cocktail_assistant=Agent()
+    )
+    with TestClient(create_app(configured)) as client:
+        result = client.post("/cocktails/search", json={"ingredient": "Gin", "non_alcoholic": True})
+        assert result.status_code == 200 and result.json() == []
+        reply = client.post(
+            "/cocktails/chat",
+            json={
+                "message": "How much lime?",
+                "history": [{"role": "assistant", "content": "Try this", "drink_ids": [2]}],
+            },
+        )
+        assert reply.status_code == 200
+        assert reply.json()["cocktails"] == []
+    assert calls == [("", {"ingredient": "Gin", "non_alcoholic": True})]

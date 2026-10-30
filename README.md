@@ -421,3 +421,18 @@ uv run ruff check . && uv run ruff format --check .
 # Re-capture README screenshots (API + UI running; uses the local Google Chrome)
 uv run python -m scripts.take_screenshots --example 5 --skip-chat
 ```
+
+## Optional cocktail domain
+
+The separate TheCocktailDB adapter supports verified recipe lookup, ingredient/name
+search and non-alcoholic filtering through `/cocktails/search` and `/cocktails/chat`.
+Both domains use the same bounded, validated read-only agent runner. Cocktail
+suggestions use recipe facts and stated preferences; H&M purchase-ranking scores
+do not measure their quality. Full recipes are looked up before presentation;
+missing quantities remain missing. Recipe lookups are cached per process.
+
+Set `COCKTAIL_API_KEY` to enable this domain; leave it empty to keep fashion fully
+independent. The public development key `1` is for development/educational use;
+check [official access options](https://www.thecocktaildb.com/api.php) before a
+production release. Recipe data and imagery are credited to
+[TheCocktailDB](https://www.thecocktaildb.com/). No recipe API key is committed.

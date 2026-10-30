@@ -32,6 +32,7 @@ def construction(monkeypatch, tmp_path, sample_catalog):
         ranker_path=tmp_path / "ranker.json",
         clip_model_name="fake",
         llm_configured=False,
+        cocktail_api_key=None,
         images_dir=tmp_path / "images",
         query_photos_dir=tmp_path / "query_photos",
         evaluation_path=tmp_path / "evaluation.json",
