@@ -997,7 +997,7 @@ def main() -> None:
             st.Page(recommendations_tab, title="For you", default=True),
             st.Page(discovery_page, title="Discover", url_path="discover"),
             st.Page(knowledge_graph_tab, title="Product connections", url_path="connections"),
-            st.Page(evaluation_tab, title="Model quality", url_path="quality"),
+            st.Page(evaluation_tab, title="Model quality", url_path="quality", visibility="hidden"),
             st.Page(chat_tab, title="Assistant", url_path="assistant", visibility="hidden"),
         ],
         position="top",

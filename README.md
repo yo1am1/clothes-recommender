@@ -29,8 +29,9 @@ everyone else accessible, and the Evaluation tab scores all eligible customers.
 
 ## MVP interface
 
-Four native pages separate shopping from model inspection: **For you**, **Discover**,
-**Product connections**, and **Model quality**. **Ask Clothy** opens a floating shopping
+Three visible pages organize shopping: **For you**, **Discover**, and
+**Product connections**. **Model quality** remains available directly at `/quality`
+and through the research records, outside the shopping navigation. **Ask Clothy** opens a floating shopping
 assistant from the bottom-right corner on every page. Only the active page and open
 chat run their requests. A compact toolbar holds shopping-history and method controls.
 Cards group name, price and type below the photo; detailed ranking evidence opens
