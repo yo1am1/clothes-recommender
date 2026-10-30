@@ -38,5 +38,6 @@ def build_chat_model(settings: Settings) -> BaseChatModel:
         model_provider=settings.llm_provider,
         temperature=settings.llm_temperature,
         timeout=settings.llm_timeout_seconds,
+        max_retries=0,
         **connection,
     )

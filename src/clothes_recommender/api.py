@@ -313,6 +313,12 @@ def create_app(services: Services | None = None) -> FastAPI:
         except IndexNotBuiltError:
             raise
         except Exception as error:
+            if getattr(error, "status_code", None) == 429:
+                logger.warning("Shopping assistant provider is rate limited")
+                raise HTTPException(
+                    status_code=429,
+                    detail="The assistant is busy. Please try again shortly.",
+                ) from error
             # Provider SDKs raise their own exception types (auth, rate limit, network). Log the
             # details server-side only: upstream messages can contain URLs or request ids.
             logger.exception("Shopping assistant failed")

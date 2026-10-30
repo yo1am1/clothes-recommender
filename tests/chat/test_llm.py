@@ -34,6 +34,7 @@ def test_openai_compatible_gateway_gets_key_base_url_and_options() -> None:
     assert model.openai_api_base == "http://localhost:20128/v1"
     assert model.temperature == 0.1
     assert model.request_timeout == 12.0
+    assert model.max_retries == 0
 
 
 def test_base_url_is_not_passed_when_unset(monkeypatch: pytest.MonkeyPatch) -> None:

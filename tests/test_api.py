@@ -294,3 +294,19 @@ def test_learned_strategy_requires_model_and_returns_grounded_hits(services):
             client.get("/users/404/recommendations", params={"strategy": "learned"}).status_code
             == 404
         )
+
+
+def test_chat_returns_retryable_rate_limit_without_provider_details(services):
+    class RateLimitedError(RuntimeError):
+        status_code = 429
+
+    class RateLimitedAssistant:
+        def reply(self, message, history):
+            raise RateLimitedError("private provider details")
+
+    with TestClient(
+        create_app(dataclasses.replace(services, assistant=RateLimitedAssistant()))
+    ) as client:
+        response = client.post("/chat", json={"message": "hi"})
+    assert response.status_code == 429
+    assert response.json() == {"detail": "The assistant is busy. Please try again shortly."}
